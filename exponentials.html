@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exponential Sum Fit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* VOICE: a precise lab instrument, calm and exact.
+   IDEA: a plotter's worksheet: the chart is the instrument, the equation its printout.
+   PICTURE: the live data-and-model chart, large, at the top.
+   COLOUR and TYPE: sky field, white, deep ink, orange for the fitted model; Outfit + Inter.
+   LAYOUT: sky band with title and actions, chart + control column, equation strip, table + second chart, method. */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0b1726);--ink:light-dark(#10223a,#e6eef6);--mute:light-dark(#4d5f75,#9fb2c6);
+--sky:light-dark(#4fb3e8,#123a5c);--skyink:light-dark(#10223a,#e6eef6);--acc:#ff7a1a;--pt:light-dark(#1d6fa8,#7ccaf2);
+--card:light-dark(#f4f8fb,#102238);--line:light-dark(#d9e3ec,#22384f);--grid:light-dark(#e7eef4,#1a2e45)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+a{color:inherit}
+.band{padding:clamp(20px,3.5vw,48px) max(5vw,16px)}
+.wrap{max-width:1240px;margin:0 auto}
+.top{background:var(--sky);color:var(--skyink);padding-bottom:clamp(18px,2.5vw,30px)}
+.top .wrap{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:flex-end;justify-content:space-between}
+.crumb{font-size:14px;margin:0 0 6px}.crumb a{text-underline-offset:3px}
+h1{font:600 clamp(28px,4vw,44px)/1.05 Outfit,Inter,sans-serif;margin:0 0 6px;text-wrap:balance}
+h2{font:600 22px/1.2 Outfit,Inter,sans-serif;margin:0 0 12px}
+.top p{margin:0;max-width:62ch}
+.acts{display:flex;flex-wrap:wrap;gap:10px}
+button,.btn{font:500 15px Inter,sans-serif;min-height:44px;padding:0 16px;border-radius:10px;border:1.5px solid currentColor;background:transparent;color:inherit;cursor:pointer;display:inline-flex;align-items:center;position:relative}
+.top button.pri{background:var(--skyink);color:var(--sky);border-color:var(--skyink)}
+button.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:focus-visible,.btn:focus-within,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.btn input{position:absolute;width:1px;height:1px;opacity:0}
+.status{font-size:14px;color:var(--mute);margin:0 0 14px}.status b{color:var(--ink);font-weight:600}
+.err{color:#d23b1f}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.fig{position:relative;min-height:440px;height:56vh;max-height:620px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}
+.fig>canvas{position:absolute;inset:0;width:100%;height:100%}
+aside{display:grid;gap:14px}
+#ctrl{display:grid;gap:14px}
+label{display:grid;gap:4px;font-size:14px;font-weight:500}
+.hint{font-size:13px;color:var(--mute);font-weight:400}
+select,input[type=number],input[type=text],textarea{font:16px Inter,sans-serif;min-height:44px;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+input[type=range]{width:100%;accent-color:var(--acc);min-height:32px}
+.chk{display:flex;gap:10px;align-items:center;min-height:40px}
+.chk input{width:22px;height:22px;accent-color:var(--acc);flex:none}
+.chks{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+fieldset{border:1.5px solid var(--line);border-radius:12px;padding:8px 12px 10px;margin:0}
+legend{font-size:14px;font-weight:600;padding:0 4px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 0;padding:14px;border-radius:12px;background:var(--card)}
+.stats div{display:grid}.stats dt{font-size:13px;color:var(--mute)}.stats dd{margin:0;font:600 19px Outfit,Inter,sans-serif;overflow-wrap:anywhere}
+.eq{margin-top:24px;padding:18px 20px;border-radius:14px;background:var(--card);border-left:4px solid var(--acc)}
+.eqtext{font:500 clamp(17px,1.8vw,21px)/1.9 Inter,sans-serif;overflow-wrap:anywhere}
+.eqtext .t{white-space:nowrap}
+sup,sub{font-size:.68em;line-height:0}
+.eqbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.eqbar .note{font-size:14px;color:var(--mute);flex:1 1 240px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;margin-top:28px}
+.scroll{overflow:auto;max-height:440px;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:8px 12px;border-bottom:1px solid var(--line);text-align:left}
+th{position:sticky;top:0;background:var(--card);font-weight:600;font-size:14px}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.z td{color:var(--mute)}
+.fig.sm{min-height:280px;height:320px}
+.method{border-top:1px solid var(--line);margin-top:36px}
+.method .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:8px 40px}
+.method p{max-width:70ch;margin:0 0 12px}
+.f{display:block;font:500 17px/1.6 Inter,sans-serif;padding:8px 14px;margin:6px 0 14px;background:var(--card);border-radius:10px;overflow-x:auto;white-space:nowrap}
+.modal{position:fixed;inset:0;background:rgba(6,14,26,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
+.modal.on{display:flex}
+.box{background:var(--bg);color:var(--ink);border-radius:16px;padding:20px;width:min(760px,100%);max-height:92vh;overflow:auto;display:grid;gap:12px}
+.box img{width:100%;border-radius:8px;border:1px solid var(--line)}
+.drop{outline:4px dashed var(--acc);outline-offset:-12px}
+.busy main{opacity:.55;transition:opacity .2s}
+@media(prefers-reduced-motion:reduce){.busy main{transition:none}}
+@media(max-width:860px){.main,.two{grid-template-columns:minmax(0,1fr)}.fig{height:auto;min-height:360px}}
+@media(max-width:600px){table{font-size:13px}.stats dd{font-size:17px}}
+#probe span{position:absolute;visibility:hidden}
+
+</style>
+</head>
+<body>
+<header class="band top"><div class="wrap">
+  <div><p class="crumb"><a href="index.html">All fitting tools</a></p>
+  <h1>Sums of exponentials</h1>
+  <p>Decay and growth curves such as y = c + A₁e^(λ₁x) + A₂e^(λ₂x). Finds the rates by variable projection and picks how many terms the data supports.</p></div>
+  <div class="acts">
+    <label class="btn" for="file">Import sheet<input id="file" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.ods"></label>
+    <button id="pasteBtn" type="button">Paste data</button>
+    <button id="sampleBtn" type="button">Load sample</button>
+    <button id="exportBtn" type="button" class="pri">Export image</button>
+  </div>
+</div></header>
+
+<main class="band"><div class="wrap">
+  <p class="status" id="status">No data yet.</p>
+  <div class="main">
+    <div class="fig" id="fig"><canvas id="cv"></canvas></div>
+    <aside>
+      <label id="sheetWrap" hidden>Sheet<select id="sheet"></select></label>
+      <div id="ctrl">
+<label>Most exponential terms to try: <span id="maxkOut">4</span><input id="maxk" type="range" min="1" max="6" value="4"></label>
+<label>Choose number of terms by<select id="crit"><option value="aicc">AICc</option><option value="bic">BIC</option></select></label>
+<label>Force exactly this many terms<select id="fixk"><option value="0">No (let the score decide)</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+<label class="chk"><input id="konst" type="checkbox" checked>Include a constant offset</label>
+
+      </div>
+      <label>Significant figures<select id="sig"><option>4</option><option selected>6</option><option>8</option><option>10</option><option>15</option></select></label>
+      <dl class="stats" id="stats"></dl>
+    </aside>
+  </div>
+
+  <section class="eq" aria-live="polite">
+    <div class="eqtext" id="eq">y = …</div>
+    <div class="eqbar">
+      <span class="note" id="eqnote"></span>
+      <button type="button" id="copyTxt">Copy as text</button>
+      <button type="button" id="copyTex">Copy LaTeX</button>
+    </div>
+  </section>
+
+  <div class="two">
+    <section><h2 id="tbTitle">Coefficients</h2><div class="scroll"><table><thead id="th"></thead><tbody id="tb"></tbody></table></div></section>
+    <section><h2 id="c2Title"></h2><div class="fig sm"><canvas id="cv2"></canvas></div><p class="status" style="margin-top:8px" id="c2Cap"></p></section>
+  </div>
+
+  <section class="method">
+    <h2 style="margin-top:28px">How it works</h2>
+    <div class="cols">
+<div>
+  <p><b>Model.</b> Decays and growths that add together:</p>
+  <span class="f">y = c + A₁e^(λ₁x) + A₂e^(λ₂x) + … + A_Ke^(λ_Kx)</span>
+  <p>Typical sources: radioactive mixtures, RC circuits, drug concentration (multi-compartment pharmacokinetics), cooling, fluorescence decay. λ &lt; 0 is decay with time constant −1/λ; λ &gt; 0 is growth.</p>
+  <p><b>Prony's insight.</b> Classical Prony and matrix-pencil methods turn this into a polynomial root problem but need evenly spaced, nearly noise-free samples. This page uses a method that works for any spacing and noise.</p>
+</div>
+<div>
+  <p><b>Variable projection.</b> For fixed rates λ the model is linear in c and Aᵢ, so they come from an exact QR least-squares solve. What remains is a small search over the K rates only:</p>
+  <span class="f">min_λ ‖y − Φ(λ)Φ(λ)⁺y‖²</span>
+  <p>Terms are added one at a time: a grid search places the new rate, then Levenberg–Marquardt refines all rates together. The number of terms is chosen by AICc with 2K + 1 parameters.</p>
+  <p>Separating close rates is genuinely hard (ill-posed); if two rates are near each other, more data or less noise is needed to tell them apart.</p>
+</div>
+
+    </div>
+    <p class="status" style="margin-top:12px">Columns: y, x. The first row is the header.</p>
+  </section>
+</div></main>
+
+<div class="modal" id="pasteM" role="dialog" aria-modal="true" aria-labelledby="pT"><div class="box">
+  <h2 id="pT">Paste data</h2>
+  <p class="status" style="margin:0">Columns: y, x, separated by tabs, commas, semicolons or spaces. First row is the header.</p>
+  <textarea id="pasteTa" rows="10"></textarea>
+  <div class="acts"><button type="button" class="pri" id="pasteOk">Use this data</button><button type="button" id="pasteNo">Cancel</button></div>
+</div></div>
+<div class="modal" id="imgM" role="dialog" aria-modal="true" aria-labelledby="iT"><div class="box">
+  <h2 id="iT">Your image</h2>
+  <p class="status" style="margin:0">Right-click or long-press the image to save it.</p>
+  <img id="imgOut" alt="Exported chart with equation">
+  <div class="acts"><button type="button" id="imgNo">Close</button></div>
+</div></div>
+<div id="probe"><span style="color:var(--ink)"></span><span style="color:var(--mute)"></span><span style="color:var(--grid)"></span><span style="color:var(--pt)"></span><span style="color:var(--bg)"></span><span style="color:var(--line)"></span></div>
+<script>
+{
+/* ===== numerics (pure, no DOM) ===== */
+function rng(seed){let s=(seed>>>0)||1;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296}}
+function gauss(r){const u=r()||1e-12,v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+const sum=a=>{let s=0;for(const v of a)s+=v;return s};
+const mean=a=>sum(a)/a.length;
+function minmax(a){let lo=Infinity,hi=-Infinity;for(const v of a){if(v<lo)lo=v;if(v>hi)hi=v}return[lo,hi]}
+function tssOf(y){const m=mean(y);let s=0;for(const v of y)s+=(v-m)**2;return s||1e-300}
+function median(a){const b=Float64Array.from(a).sort(),n=b.length;return n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2}
+function madScale(e){const m=median(e);return median(Array.from(e,v=>Math.abs(v-m)))/0.6745}
+
+/* Householder QR least squares with column pivoting. cols: Float64Array[] (length n each). */
+function lsq(cols,y,o={}){
+  const n=y.length,m=cols.length,sw=o.w?Float64Array.from(o.w,v=>Math.sqrt(Math.max(v,0))):null;
+  const A=cols.map(c=>{const a=Float64Array.from(c);if(sw)for(let i=0;i<n;i++)a[i]*=sw[i];return a});
+  const qy=Float64Array.from(y);if(sw)for(let i=0;i<n;i++)qy[i]*=sw[i];
+  const perm=cols.map((_,j)=>j),V=[],tol=o.tol??1e-11;let r=0,r00=0;
+  for(let k=0;k<m&&k<n;k++){
+    let best=-1,bi=k;
+    for(let j=k;j<m;j++){let s=0;const c=A[j];for(let i=k;i<n;i++)s+=c[i]*c[i];if(s>best){best=s;bi=j}}
+    if(bi!==k){[A[k],A[bi]]=[A[bi],A[k]];[perm[k],perm[bi]]=[perm[bi],perm[k]]}
+    const nrm=Math.sqrt(best);if(k===0)r00=nrm;
+    if(!(nrm>0)||nrm<=tol*r00)break;
+    const c=A[k],alpha=c[k]>0?-nrm:nrm,v=new Float64Array(n-k);
+    for(let i=k;i<n;i++)v[i-k]=c[i];v[0]-=alpha;
+    let vn=0;for(let i=0;i<v.length;i++)vn+=v[i]*v[i];
+    const ap=z=>{let s=0;for(let i=k;i<n;i++)s+=v[i-k]*z[i];s=2*s/vn;for(let i=k;i<n;i++)z[i]-=s*v[i-k]};
+    for(let j=k+1;j<m;j++)ap(A[j]);ap(qy);c[k]=alpha;V.push([v,vn]);r=k+1;
+  }
+  const b=new Float64Array(r);
+  for(let j=r-1;j>=0;j--){let s=qy[j];for(let l=j+1;l<r;l++)s-=A[l][j]*b[l];b[j]=s/A[j][j]}
+  const coef=new Float64Array(m);for(let j=0;j<r;j++)coef[perm[j]]=b[j];
+  const e=new Float64Array(n);let rss=0;
+  for(let i=0;i<n;i++){let f=0;for(let j=0;j<r;j++)f+=b[j]*cols[perm[j]][i];e[i]=y[i]-f;rss+=(sw?sw[i]*sw[i]:1)*e[i]*e[i]}
+  let h=null;
+  if(o.needH){h=new Float64Array(n);
+    for(let j=0;j<r;j++){const q=new Float64Array(n);q[j]=1;
+      for(let k=r-1;k>=0;k--){const[v,vn]=V[k];let s=0;for(let i=k;i<n;i++)s+=v[i-k]*q[i];s=2*s/vn;for(let i=k;i<n;i++)q[i]-=s*v[i-k]}
+      for(let i=0;i<n;i++)h[i]+=q[i]*q[i]}}
+  const dg=new Float64Array(r);
+  for(let j=0;j<r;j++){const X=new Float64Array(j+1);X[j]=1/A[j][j];
+    for(let i=j-1;i>=0;i--){let s=0;for(let l=i+1;l<=j;l++)s+=A[l][i]*X[l];X[i]=-s/A[i][i]}
+    for(let i=0;i<=j;i++)dg[i]+=X[i]*X[i]}
+  return{coef,r,rss,e,h,used:perm.slice(0,r),b,dg,A,V,perm,sw,qy,n};
+}
+/* re-solve with the same design for new y (bootstrap) */
+function lsqResolve(f,y){
+  const n=f.n,z=Float64Array.from(y);if(f.sw)for(let i=0;i<n;i++)z[i]*=f.sw[i];
+  for(let k=0;k<f.r;k++){const[v,vn]=f.V[k];let s=0;for(let i=k;i<n;i++)s+=v[i-k]*z[i];s=2*s/vn;for(let i=k;i<n;i++)z[i]-=s*v[i-k]}
+  const b=new Float64Array(f.r),A=f.A;
+  for(let j=f.r-1;j>=0;j--){let s=z[j];for(let l=j+1;l<f.r;l++)s-=A[l][j]*b[l];b[j]=s/A[j][j]}
+  const coef=new Float64Array(f.coef.length);for(let j=0;j<f.r;j++)coef[f.perm[j]]=b[j];return coef;
+}
+/* phi aligned to cols -> phi^T (R^T R)^-1 phi  */
+function lsqQuad(f,phi){const r=f.r,A=f.A,z=new Float64Array(r);
+  for(let i=0;i<r;i++){let s=phi[f.perm[i]];for(let l=0;l<i;l++)s-=A[i][l]*z[l];z[i]=s/A[i][i]}
+  let q=0;for(let i=0;i<r;i++)q+=z[i]*z[i];return q}
+
+function score(name,f,n,tss,pp){
+  const p=pp??f.r,rss=Math.max(f.rss,1e-15*tss,1e-300);
+  if(name==='aicc')return n-p-1<=0?Infinity:n*Math.log(rss/n)+2*p+2*p*(p+1)/(n-p-1);
+  if(name==='aic')return n*Math.log(rss/n)+2*p;
+  if(name==='bic')return n-p<=0?Infinity:n*Math.log(rss/n)+p*Math.log(n);
+  if(name==='gcv')return n-p<=0?Infinity:n*rss/((n-p)**2);
+  if(name==='loocv'){if(!f.h)return NaN;let s=0;for(let i=0;i<n;i++){const d=1-f.h[i];if(d<1e-10)return Infinity;s+=(f.e[i]/d)**2}return s/n}
+  return NaN;
+}
+const CRIT_NAMES={aicc:'AICc',bic:'BIC',loocv:'LOOCV',gcv:'GCV',aic:'AIC'};
+
+/* backward elimination by smallest |t| while the score improves */
+function prune(cols,y,idx,crit,tss,o={}){
+  const n=y.length,sub=I=>I.map(k=>cols[k]);
+  let S=idx.slice(),f=lsq(sub(S),y,{needH:true,w:o.w}),removed=new Set();
+  const keep=new Set(o.keep||[]);
+  const toS=g=>g.used.map(j=>S[j]);
+  S=toS(f).sort((a,b)=>a-b);f=lsq(sub(S),y,{needH:true,w:o.w});
+  for(let g=0;g<400;g++){
+    if(S.length<=1||n-f.r<=0)break;
+    const cur=score(crit,f,n,tss),s2=f.rss/(n-f.r);
+    const cand=f.used.map((j,q)=>({k:S[j],t:Math.abs(f.b[q])/Math.sqrt(Math.max(s2*f.dg[q],1e-300))})).filter(c=>!keep.has(c.k)).sort((a,b)=>a.t-b.t).slice(0,3);
+    let ok=false;
+    for(const c of cand){const S2=S.filter(k=>k!==c.k);let f2=lsq(sub(S2),y,{needH:true,w:o.w});
+      if(score(crit,f2,n,tss)<cur-1e-9){if(f2.r===S2.length){S=S2;f=f2}else{S=f2.used.map(j=>S2[j]).sort((a,b)=>a-b);f=lsq(sub(S),y,{needH:true,w:o.w})}removed.add(c.k);ok=true;break}}
+    if(!ok)break;
+  }
+  const coef=new Float64Array(cols.length);f.used.forEach((j,q)=>coef[S[j]]=f.b[q]);
+  return{f,S,coef,removed};
+}
+/* full-model fits over increasing size, returns scores */
+function scanSizes(cols,y,maxK,crit,tss,o={}){
+  const n=y.length,sc=[];
+  for(let d=0;d<=maxK;d++){const f=lsq(cols.slice(0,d+1),y,{needH:crit==='loocv',w:o.w});sc.push(score(crit,f,n,tss))}
+  let best=0,bs=Infinity;sc.forEach((v,i)=>{if(v<bs-1e-9){bs=v;best=i}});
+  return{scores:sc,best:bs===Infinity?Math.min(1,maxK):best};
+}
+
+/* ---------- polynomial helpers ---------- */
+function chebCols(t,K){const n=t.length,T=[new Float64Array(n).fill(1)];if(K>=1)T.push(Float64Array.from(t));
+  for(let k=2;k<=K;k++){const a=new Float64Array(n),p=T[k-1],q=T[k-2];for(let i=0;i<n;i++)a[i]=2*t[i]*p[i]-q[i];T.push(a)}return T}
+function powCols(t,K){const n=t.length,P=[new Float64Array(n).fill(1)];for(let k=1;k<=K;k++){const a=new Float64Array(n);for(let i=0;i<n;i++)a[i]=P[k-1][i]*t[i];P.push(a)}return P}
+function clenshaw(c,t){let b1=0,b2=0;for(let k=c.length-1;k>=1;k--){const b=2*t*b1-b2+c[k];b2=b1;b1=b}return t*b1-b2+(c[0]||0)}
+function chebDeriv(c){const n=c.length;if(n<2)return[0];const d=new Array(n-1).fill(0);
+  for(let k=n-1;k>=1;k--){d[k-1]=(k+1<n-1?d[k+1]:0)+2*k*c[k]}d[0]/=2;return d}
+function cheb2mono(c){const K=c.length-1,out=new Array(K+1).fill(0);let p=[1],q=[0,1];
+  for(let k=0;k<=K;k++){const T=k===0?p:k===1?q:null;let cur;
+    if(k===0)cur=[1];else if(k===1)cur=[0,1];else{cur=new Array(k+1).fill(0);for(let i=0;i<p.length;i++)cur[i]-=p[i];for(let i=0;i<q.length;i++)cur[i+1]+=2*q[i];p=q;q=cur}
+    if(c[k])for(let i=0;i<cur.length;i++)out[i]+=c[k]*cur[i]}
+  return out}
+/* coefficients in t=(x-c)/s  ->  coefficients in x */
+function shiftScale(a,c,s){const m=a.length,out=new Array(m).fill(0);
+  for(let k=0;k<m;k++){if(!a[k])continue;const ak=a[k]/s**k;if(c===0){out[k]+=ak;continue}let bin=1;
+    for(let j=0;j<=k;j++){out[j]+=ak*bin*(-c)**(k-j);bin=bin*(k-j)/(j+1)}}return out}
+function scaleOnly(a,s){return a.map((v,k)=>v/s**k)}
+const polyval=(a,x)=>{let v=0;for(let k=a.length-1;k>=0;k--)v=v*x+a[k];return v};
+function polyder(a){return a.slice(1).map((v,k)=>v*(k+1))}
+/* expansion point choice like the original page */
+function originFor(xs,mode){const[mn,mx]=minmax(xs),mid=(mn+mx)/2;let o=mode||'auto';
+  if(o==='auto')o=Math.abs(mid)<=Math.max(mx-mn,1e-300)?'zero':'mid';const c=o==='zero'?0:mid;
+  let s=0;for(const x of xs)s=Math.max(s,Math.abs(x-c));return{c,s:s>0?s:1}}
+function chebScale(xs){const[mn,mx]=minmax(xs);const c=(mn+mx)/2,s=(mx-mn)/2||1;return{c,s}}
+
+/* Aberth-Ehrlich roots of a0+a1 z+...; returns [{re,im}] */
+function roots(a0){const a=a0.slice();while(a.length>1&&Math.abs(a[a.length-1])<1e-300)a.pop();const n=a.length-1;if(n<1)return[];
+  const c=a.map(v=>v/a[n]);const R=1+Math.max(...c.slice(0,n).map(Math.abs));
+  let z=Array.from({length:n},(_,k)=>{const th=2*Math.PI*k/n+0.4;const r=R*0.5;return[r*Math.cos(th),r*Math.sin(th)]});
+  const mul=(p,q)=>[p[0]*q[0]-p[1]*q[1],p[0]*q[1]+p[1]*q[0]],div=(p,q)=>{const d=q[0]*q[0]+q[1]*q[1]||1e-300;return[(p[0]*q[0]+p[1]*q[1])/d,(p[1]*q[0]-p[0]*q[1])/d]};
+  const ev=x=>{let p=[1,0],d=[0,0];for(let k=n-1;k>=0;k--){d=[d[0]*x[0]-d[1]*x[1]+p[0],d[0]*x[1]+d[1]*x[0]+p[1]];p=mul(p,x);p[0]+=c[k]}return[p,d]};
+  for(let it=0;it<500;it++){let mx=0;
+    for(let i=0;i<n;i++){const[p,d]=ev(z[i]);const ratio=div(p,d);let s=[0,0];
+      for(let j=0;j<n;j++)if(j!==i){const q=div([1,0],[z[i][0]-z[j][0],z[i][1]-z[j][1]]);s[0]+=q[0];s[1]+=q[1]}
+      const den=[1-(ratio[0]*s[0]-ratio[1]*s[1]),-(ratio[0]*s[1]+ratio[1]*s[0])],w=div(ratio,den);
+      z[i]=[z[i][0]-w[0],z[i][1]-w[1]];mx=Math.max(mx,Math.hypot(w[0],w[1])/(1+Math.hypot(z[i][0],z[i][1])))}
+    if(mx<1e-14)break}
+  return z.map(([re,im])=>({re,im:Math.abs(im)<1e-9*(1+Math.abs(re))?0:im}));
+}
+
+/* ---------- dense linear algebra ---------- */
+function chol(A){const n=A.length,L=A.map(r=>new Float64Array(n));
+  for(let j=0;j<n;j++){let s=A[j][j];for(let k=0;k<j;k++)s-=L[j][k]*L[j][k];if(!(s>0))return null;const d=Math.sqrt(s);L[j][j]=d;
+    for(let i=j+1;i<n;i++){let t=A[i][j];const Li=L[i],Lj=L[j];for(let k=0;k<j;k++)t-=Li[k]*Lj[k];Li[j]=t/d}}return L}
+function cholSolve(L,b){const n=L.length,z=Float64Array.from(b);
+  for(let i=0;i<n;i++){let s=z[i];const Li=L[i];for(let k=0;k<i;k++)s-=Li[k]*z[k];z[i]=s/Li[i]}
+  for(let i=n-1;i>=0;i--){let s=z[i];for(let k=i+1;k<n;k++)s-=L[k][i]*z[k];z[i]=s/L[i][i]}return z}
+function fwdSolve(L,b){const n=L.length,z=Float64Array.from(b);for(let i=0;i<n;i++){let s=z[i];const Li=L[i];for(let k=0;k<i;k++)s-=Li[k]*z[k];z[i]=s/Li[i]}return z}
+function luSolve(A0,b0){const n=A0.length,A=A0.map(r=>Float64Array.from(r)),b=Float64Array.from(b0);
+  for(let k=0;k<n;k++){let p=k;for(let i=k+1;i<n;i++)if(Math.abs(A[i][k])>Math.abs(A[p][k]))p=i;
+    if(Math.abs(A[p][k])<1e-300)return null;[A[k],A[p]]=[A[p],A[k]];[b[k],b[p]]=[b[p],b[k]];
+    for(let i=k+1;i<n;i++){const f=A[i][k]/A[k][k];if(!f)continue;for(let j=k;j<n;j++)A[i][j]-=f*A[k][j];b[i]-=f*b[k]}}
+  const x=new Float64Array(n);for(let i=n-1;i>=0;i--){let s=b[i];for(let j=i+1;j<n;j++)s-=A[i][j]*x[j];x[i]=s/A[i][i]}return x}
+function jacobiEig(S0){const n=S0.length,S=S0.map(r=>Float64Array.from(r)),V=S.map((_,i)=>{const r=new Float64Array(n);r[i]=1;return r});
+  for(let sweep=0;sweep<100;sweep++){let off=0;for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)off+=S[i][j]**2;if(off<1e-30)break;
+    for(let p=0;p<n;p++)for(let q=p+1;q<n;q++){if(Math.abs(S[p][q])<1e-300)continue;
+      const th=(S[q][q]-S[p][p])/(2*S[p][q]),t=Math.sign(th||1)/(Math.abs(th)+Math.sqrt(th*th+1)),c=1/Math.sqrt(t*t+1),s=t*c;
+      for(let k=0;k<n;k++){const a=S[k][p],b=S[k][q];S[k][p]=c*a-s*b;S[k][q]=s*a+c*b}
+      for(let k=0;k<n;k++){const a=S[p][k],b=S[q][k];S[p][k]=c*a-s*b;S[q][k]=s*a+c*b}
+      for(let k=0;k<n;k++){const a=V[k][p],b=V[k][q];V[k][p]=c*a-s*b;V[k][q]=s*a+c*b}}}
+  return{vals:S.map((r,i)=>r[i]),vecs:V}}/* vecs[k][i] = component k of eigenvector i */
+
+/* Lawson-Hanson NNLS: min ||A x - b||, x>=0. A as columns. */
+function nnls(cols,b){const m=cols.length,n=b.length,x=new Float64Array(m),P=new Set();
+  const resid=()=>{const r=Float64Array.from(b);for(let j=0;j<m;j++)if(x[j])for(let i=0;i<n;i++)r[i]-=x[j]*cols[j][i];return r};
+  const grad=r=>cols.map(c=>{let s=0;for(let i=0;i<n;i++)s+=c[i]*r[i];return s});
+  let w=grad(resid());const tol=1e-12*Math.max(1,...w.map(Math.abs));
+  for(let outer=0;outer<3*m+30;outer++){
+    let t=-1,best=tol;for(let j=0;j<m;j++)if(!P.has(j)&&w[j]>best){best=w[j];t=j}if(t<0)break;P.add(t);
+    for(let inner=0;inner<3*m+30;inner++){const Pl=[...P],f=lsq(Pl.map(j=>cols[j]),b,{tol:1e-13});const z=new Float64Array(m);Pl.forEach((j,q)=>z[j]=f.coef[q]);
+      if(Pl.every(j=>z[j]>0)){for(let j=0;j<m;j++)x[j]=z[j];break}
+      let al=Infinity;for(const j of Pl)if(z[j]<=0){const a=x[j]/(x[j]-z[j]);if(a<al)al=a}
+      for(let j=0;j<m;j++)x[j]+=al*(z[j]-x[j]);for(const j of Pl)if(x[j]<=1e-14){x[j]=0;P.delete(j)}
+      if(!P.size)break}
+    w=grad(resid())}
+  return x}
+/* least distance programming: min ||z|| s.t. G z >= h (G rows) */
+function ldp(G,h){const k=G[0].length,m=G.length,cols=[];
+  for(let j=0;j<m;j++){const c=new Float64Array(k+1);for(let i=0;i<k;i++)c[i]=G[j][i];c[k]=h[j];cols.push(c)}
+  const f=new Float64Array(k+1);f[k]=1;const u=nnls(cols,f);const r=Float64Array.from(f).map(v=>-v);
+  for(let j=0;j<m;j++)if(u[j])for(let i=0;i<=k;i++)r[i]+=u[j]*cols[j][i];
+  if(Math.abs(r[k])<1e-12)return null;return Array.from({length:k},(_,i)=>-r[i]/r[k])}
+/* least squares with inequality constraints: min ||E b - y|| s.t. G b >= h */
+function lsi(cols,y,G,h){const f=lsq(cols,y,{tol:1e-13}),m=cols.length;if(f.r<m)return null;
+  if(!G.length)return Array.from(f.coef);const A=f.A,r=m;
+  const q1=f.qy.slice(0,r),Gt=G.map(g=>{const z=new Float64Array(r);for(let i=0;i<r;i++){let s=g[f.perm[i]];for(let l=0;l<i;l++)s-=A[i][l]*z[l];z[i]=s/A[i][i]}return z});
+  const ht=h.map((v,j)=>{let s=0;for(let i=0;i<r;i++)s+=Gt[j][i]*q1[i];return v-s});
+  if(ht.every(v=>v<=1e-12))return Array.from(f.coef);
+  const z=ldp(Gt,ht);if(!z)return null;const zz=z.map((v,i)=>v+q1[i]),bp=new Float64Array(r);
+  for(let j=r-1;j>=0;j--){let s=zz[j];for(let l=j+1;l<r;l++)s-=A[l][j]*bp[l];bp[j]=s/A[j][j]}
+  const out=new Array(m).fill(0);for(let j=0;j<r;j++)out[f.perm[j]]=bp[j];return out}
+
+/* Nelder-Mead minimiser */
+function nelderMead(fn,x0,step,iters=300){const n=x0.length;let P=[x0.slice()];for(let i=0;i<n;i++){const p=x0.slice();p[i]+=step[i]??step;P.push(p)}
+  let F=P.map(fn);
+  for(let it=0;it<iters;it++){const o=F.map((v,i)=>i).sort((a,b)=>F[a]-F[b]);P=o.map(i=>P[i]);F=o.map(i=>F[i]);
+    if(Math.abs(F[n]-F[0])<1e-10*(1+Math.abs(F[0])))break;
+    const c=new Array(n).fill(0);for(let i=0;i<n;i++)for(let j=0;j<n;j++)c[j]+=P[i][j]/n;
+    const at=t=>c.map((v,j)=>v+t*(P[n][j]-v));const xr=at(-1),fr=fn(xr);
+    if(fr<F[0]){const xe=at(-2),fe=fn(xe);if(fe<fr){P[n]=xe;F[n]=fe}else{P[n]=xr;F[n]=fr}}
+    else if(fr<F[n-1]){P[n]=xr;F[n]=fr}
+    else{const xc=at(fr<F[n]?-0.5:0.5),fc=fn(xc);if(fc<Math.min(fr,F[n])){P[n]=xc;F[n]=fc}
+      else{for(let i=1;i<=n;i++){P[i]=P[i].map((v,j)=>P[0][j]+0.5*(v-P[0][j]));F[i]=fn(P[i])}}}}
+  const o=F.map((v,i)=>i).sort((a,b)=>F[a]-F[b]);return{x:P[o[0]],f:F[o[0]]}}
+
+/* ---------- distributions ---------- */
+function ninv(p){const a=[-39.6968302866538,220.946098424521,-275.928510446969,138.357751867269,-30.6647980661472,2.50662827745924],
+  b=[-54.4760987982241,161.585836858041,-155.698979859887,66.8013118877197,-13.2806815528857],c=[-7.78489400243029e-3,-0.322396458041136,-2.40075827716184,-2.54973253934373,4.37466414146497,2.93816398269878],d=[7.78469570904146e-3,0.32246712907004,2.445134137143,3.75440866190742];
+  const pl=0.02425;let q,r;if(p<pl){q=Math.sqrt(-2*Math.log(p));return(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)}
+  if(p>1-pl){q=Math.sqrt(-2*Math.log(1-p));return-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)}
+  q=p-0.5;r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1)}
+function lgamma(x){const g=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+  let y=x,t=x+5.5;t-=(x+0.5)*Math.log(t);let s=1.000000000190015;for(const v of g)s+=v/++y;return-t+Math.log(2.5066282746310005*s/x)}
+function betacf(a,b,x){let qab=a+b,qap=a+1,qam=a-1,c=1,d=1-qab*x/qap;if(Math.abs(d)<1e-300)d=1e-300;d=1/d;let h=d;
+  for(let m=1;m<=300;m++){const m2=2*m;let aa=m*(b-m)*x/((qam+m2)*(a+m2));d=1+aa*d;if(Math.abs(d)<1e-300)d=1e-300;c=1+aa/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));d=1+aa*d;if(Math.abs(d)<1e-300)d=1e-300;c=1+aa/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<3e-16)break}return h}
+function ibeta(x,a,b){if(x<=0)return 0;if(x>=1)return 1;const bt=Math.exp(lgamma(a+b)-lgamma(a)-lgamma(b)+a*Math.log(x)+b*Math.log(1-x));
+  return x<(a+1)/(a+b+2)?bt*betacf(a,b,x)/a:1-bt*betacf(b,a,1-x)/b}
+function tcdf(t,df){const x=df/(df+t*t),p=0.5*ibeta(x,df/2,0.5);return t>0?1-p:p}
+function tinv(p,df){if(df>1e6)return ninv(p);let lo=-1e3,hi=1e3;for(let i=0;i<200;i++){const m=(lo+hi)/2;if(tcdf(m,df)<p)lo=m;else hi=m}return(lo+hi)/2}
+
+/* ===== formatting & equations (pure) ===== */
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const neg=s=>String(s).replace(/-/g,'−');
+function fnum(v,sig){if(v===0||!isFinite(v))return{m:isFinite(v)?'0':String(v),e:0};const ex=Math.floor(Math.log10(Math.abs(v)));
+  if(ex>=-3&&ex<=5)return{m:String(Number(v.toPrecision(sig))),e:0};
+  const[m,e]=v.toExponential(sig-1).split('e');return{m:String(Number(m)),e:+e}}
+const numH=(v,sig)=>{const f=fnum(v,sig);return esc(neg(f.m))+(f.e?`×10<sup>${neg(f.e)}</sup>`:'')};
+const numP=(v,sig)=>{const f=fnum(v,sig);return f.m+(f.e?'e'+f.e:'')};
+const numL=(v,sig)=>{const f=fnum(v,sig);return f.m+(f.e?`\\times10^{${f.e}}`:'')};
+const numT=(v,sig)=>{const f=fnum(v,sig);return neg(f.m)+(f.e?'×10^'+neg(f.e):'')};
+/* variable name object {h (display text), p (plain), l (latex)} */
+function varName(c,sig,x='x'){if(!c)return{h:x,p:x,l:x};const a=numT(Math.abs(c),sig),sg=c<0?'+':'−';
+  return{h:`(${x} ${sg} ${a})`,p:`(${x}${c<0?'+':'-'}${numP(Math.abs(c),sig)})`,l:`(${x}${c<0?'+':'-'}${numL(Math.abs(c),sig)})`}}
+/* term: {v, b:[[text,mode]], p:'*x^2', l:'x^{2}'}; mode 0 normal, 1 superscript, 2 subscript */
+function buildEq(lhs,terms,sig){
+  const groups=[],L=terms.filter(t=>t.v!==0&&isFinite(t.v));let plain=lhs?lhs+' = ':'',latex=lhs?lhs+' = ':'';
+  if(lhs)groups.push([[lhs+' = ',0]]);
+  if(!L.length){groups.push([['0',0]]);return{groups,plain:plain+'0',latex:latex+'0'}}
+  L.forEach((t,i)=>{const f=fnum(Math.abs(t.v),sig),hasB=t.b&&t.b.length,one=f.m==='1'&&!f.e&&hasB;
+    const lead=i===0?(t.v<0?'−':''):(t.v<0?' − ':' + ');const S=[[lead+(one?'':f.m+(f.e?'×10':'')),0]];
+    if(f.e&&!one)S.push([neg(String(f.e)),1]);if(hasB){S.push([(one?'':' ')+t.b[0][0],t.b[0][1]]);S.push(...t.b.slice(1))}
+    groups.push(S);
+    const sp=i===0?(t.v<0?'-':''):(t.v<0?' - ':' + ');const cp=f.m+(f.e?'e'+f.e:''),cl=f.m+(f.e?`\\times10^{${f.e}}`:'');
+    plain+=sp+(one?(t.p||'').replace(/^\*/,''):cp+(t.p||''));latex+=sp+(one?(t.l||''):cl+(hasB?'\\,':'')+(t.l||''))});
+  return{groups,plain,latex}}
+function powTerm(v,k,V){return{v,b:k?[[V.h,0]].concat(k>1?[[String(k),1]]:[]):[],p:k?(k>1?`*${V.p}^${k}`:`*${V.p}`):'',l:k?(k>1?`${V.l}^{${k}}`:V.l):''}}
+const powTerms=(a,V)=>a.map((v,k)=>powTerm(v,k,V));
+function eqJoin(parts){const o={groups:[],plain:'',latex:''};parts.forEach(p=>{if(p==='BR'){o.groups.push('BR');o.plain+='\n';o.latex+=' \\\\\n'}
+  else if(typeof p==='string'){o.groups.push([[p,0]]);o.plain+=p;o.latex+=p}else{o.groups.push(...p.groups);o.plain+=p.plain;o.latex+=p.latex}});return o}
+function eqText(s,lat){return{groups:[[[s,0]]],plain:s,latex:lat??s}}
+const fmtStat=(v,d=4)=>isFinite(v)?neg(String(+v.toPrecision(d))):'—';
+function tDef(c,s,sig,x='x',t='t'){const V=varName(c,sig,x),h=c?V.h.slice(1,-1):x;const den=s===1?'':` / ${numT(s,sig)}`;
+  return eqText(`${t} = ${c||s!==1?(c&&s!==1?'('+h+')':h)+den:x}`,`${t} = ${c?V.l:x}${s===1?'':'/'+numL(s,sig)}`)}
+/* polynomial in Chebyshev coefficients cc on t=(x-c)/s, shown in one of three forms */
+function chebEq(cc,c,s,form,sig,lhs='y'){
+  if(form==='cheb'){const terms=cc.map((v,k)=>({v,b:k?[['T',0],[String(k),2],['(t)',0]]:[],p:k?`*T${k}(t)`:'',l:k?`T_{${k}}(t)`:''}));return eqJoin([buildEq(lhs,terms,sig),'BR',tDef(c,s,sig)])}
+  const mt=cheb2mono(cc);if(form==='t')return eqJoin([buildEq(lhs,powTerms(mt,{h:'t',p:'t',l:'t'}),sig),'BR',tDef(c,s,sig)]);
+  return buildEq(lhs,powTerms(shiftScale(mt,c,s),{h:'x',p:'x',l:'x'}),sig)}
+const FORM_SELECT='<label>Show equation as<select id="form"><option value="cheb">Chebyshev series (accurate)</option><option value="t">Powers of t</option><option value="x">Expanded powers of x</option></select></label>';
+
+/* ===== sums of real exponentials by variable projection + Levenberg–Marquardt ===== */
+const M={tag:'exponentials',
+  defaults:{maxk:4,konst:true,crit:'aicc',fixk:0},
+  opts(){return{maxk:+$('maxk').value,konst:$('konst').checked,crit:$('crit').value,fixk:+$('fixk').value}},
+  sample(){const r=rng(9),rows=[['y','x']];for(let i=0;i<200;i++){const x=15*r()**1.6;rows.push([+(5*Math.exp(-0.3*x)+2*Math.exp(-2*x)+1+0.03*gauss(r)).toFixed(5),+x.toFixed(5)])}
+    return{rows,label:'Sample data (made up): 5e^(−0.3x) + 2e^(−2x) + 1 plus noise, 200 points'}},
+  fit(D,o){
+    const x=D.x,y=D.y,n=D.n,tss=tssOf(y),[xa,xb]=minmax(x),rg=xb-xa||1,u=Float64Array.from(x,v=>(v-xa)/rg);
+    const one=new Float64Array(n).fill(1),cols=mu=>[...(o.konst?[one]:[]),...mu.map(m=>Float64Array.from(u,v=>Math.exp(m*v)))];
+    const proj=mu=>lsq(cols(mu),y,{tol:1e-12});const LIM=60;
+    const lm=mu0=>{let mu=mu0.slice(),f=proj(mu),lam=1e-2;const K=mu.length;
+      for(let it=0;it<80;it++){const J=mu.map((m,j)=>{const h=1e-6*Math.max(1,Math.abs(m)),mp=mu.slice();mp[j]+=h;const e2=proj(mp).e;return Float64Array.from(e2,(v,i)=>(v-f.e[i])/h)});
+        let ok=false;for(let tr=0;tr<10;tr++){const aug=J.map((c,j)=>{const z=new Float64Array(n+K);z.set(c);z[n+j]=Math.sqrt(lam)*Math.max(1e-8,Math.hypot(...c));return z});
+          const rhs=new Float64Array(n+K);for(let i=0;i<n;i++)rhs[i]=-f.e[i];const d=lsq(aug,rhs,{tol:1e-14}).coef;
+          const m2=mu.map((v,j)=>Math.max(-LIM,Math.min(LIM,v+d[j]))),f2=proj(m2);
+          if(f2.rss<f.rss){const gain=(f.rss-f2.rss)/f.rss;mu=m2;f=f2;lam=Math.max(lam/4,1e-10);ok=gain>1e-12;break}lam*=6}
+        if(!ok)break}
+      return{mu,f}};
+    const grid=Array.from({length:161},(_,i)=>-40+0.5*i).filter(v=>Math.abs(v)>0.05);
+    const path=[];let cur=[];const Kmax=o.fixk>0?o.fixk:o.maxk;
+    for(let K=1;K<=Kmax;K++){let bm=null,br=Infinity;for(const g of grid){const r=proj([...cur,g]).rss;if(r<br){br=r;bm=g}}
+      const s=lm([...cur,bm]);cur=s.mu;const p=2*K+(o.konst?1:0);path.push({K,mu:s.mu.slice(),f:s.f,v:score(o.crit,s.f,n,tss,p)})}
+    let best=path[path.length-1];if(!(o.fixk>0)){let bs=Infinity;for(const p of path)if(p.v<bs-1e-9){bs=p.v;best=p}}
+    const{mu,f}=best,K=mu.length,cf=Array.from(f.coef),c0=o.konst?cf[0]:0,amps=cf.slice(o.konst?1:0),lam=mu.map(m=>m/rg);
+    const terms=lam.map((l,i)=>({A:amps[i],l})).filter(t=>t.A!==0).sort((a,b)=>a.l-b.l);
+    const shift=terms.some(t=>Math.abs(t.l*xa)>50)?xa:0,Ax=terms.map(t=>t.A*Math.exp(-t.l*(xa-shift)));
+    const fx=v=>{let s=c0;terms.forEach((t,i)=>s+=Ax[i]*Math.exp(t.l*(v-shift)));return s};let rss=0;for(let i=0;i<n;i++)rss+=(y[i]-fx(x[i]))**2;
+    return{
+      stats:[['Exponential terms',terms.length],['Constant',o.konst?fmtStat(c0,5):'off'],['R²',fmtStat(1-rss/tss,6)],['RMSE',fmtStat(Math.sqrt(rss/n))],['Rates λ',terms.map(t=>fmtStat(t.l,4)).join(', ')],['Points',n]],
+      eq(sig){const V=varName(shift,sig);const tt=[];if(o.konst)tt.push({v:c0,b:[],p:'',l:''});
+        terms.forEach((t,i)=>{const lt=numT(t.l,sig),lp=numP(t.l,sig),ll=numL(t.l,sig),arg=shift?V.h:'x';tt.push({v:Ax[i],b:[['e',0],[`${lt}${arg==='x'?'x':'·'+arg}`,1]],p:`*exp(${lp}*${shift?V.p:'x'})`,l:`e^{${ll}${shift?V.l:'x'}}`})});
+        return buildEq('y',tt,sig)},
+      note:`Rates found by variable projection: for any trial rates the amplitudes are an exact least-squares solve, so only the ${K} rate${K>1?'s are':' is'} searched (Levenberg–Marquardt). Number of terms chosen by ${o.fixk>0?'your setting':CRIT_NAMES[o.crit]}.`,
+      curves:[...(terms.length>1?terms.map((t,i)=>({f:v=>c0+Ax[i]*Math.exp(t.l*(v-shift)),color:'cat'+(i+2),width:1.4,dash:[5,4],label:`term ${i+1}`})):[]),{f:fx,color:'acc',label:'fit'}],
+      tbTitle:'Terms',
+      table(sig){return{head:[{t:'Term'},{t:'Amplitude',n:1},{t:'Rate λ',n:1},{t:'Time constant −1/λ',n:1},{t:'Half-life / doubling',n:1}],
+        rows:[...(o.konst?[{cells:['constant',{h:numH(c0,sig)},'0','—','—']}]:[]),...terms.map((t,i)=>({cells:[`e^(λ${i+1}x)`,{h:numH(Ax[i],sig)},{h:numH(t.l,sig)},{h:numH(-1/t.l,sig)},{h:numH(Math.LN2/Math.abs(t.l),sig)+(t.l<0?' (half-life)':' (doubling)')}]}))]}},
+      chart2:o.fixk>0?{title:'Residuals',caption:'y − ŷ against x.',xlabel:D.names[1],ylabel:'residual',series:[{pts:Array.from(x,(v,i)=>[v,y[i]-fx(v)]),dots:true,line:false,r:2}],hlines:[{y:0}]}
+        :{title:`${CRIT_NAMES[o.crit]} by number of terms`,caption:'Lower is better; the orange dot is the chosen number of exponentials.',xlabel:'exponential terms',ylabel:'score',series:[{pts:path.map(p=>[p.K,p.v]).filter(p=>isFinite(p[1])),dots:true}],mark:[K,best.v]},
+      exportTitle:`Sum of ${terms.length} exponential${terms.length>1?'s':''}`,exportSub:`${n} points · R² = ${fmtStat(1-rss/tss,6)} · RMSE = ${fmtStat(Math.sqrt(rss/n))} · rates ${terms.map(t=>fmtStat(t.l,4)).join(', ')}`
+    }}};
+
+/* ===== shared page shell (DOM) ===== */
+const $=id=>document.getElementById(id);
+let D=null,R=null,wb=null,fileName='';
+const CAT=['#1d6fa8','#ff7a1a','#2a9d8f','#c2417a','#7a5cc2','#b08415','#d64545','#3c8f3c','#5a6b7d','#e07fb0'];
+function pal(){const s=[...$('probe').children].map(e=>getComputedStyle(e).color);return{ink:s[0],mute:s[1],grid:s[2],pt:s[3],bg:s[4],line:s[5],acc:'#ff7a1a'}}
+const LIGHT={ink:'#10223a',mute:'#4d5f75',grid:'#e7eef4',pt:'#1d6fa8',bg:'#ffffff',line:'#d9e3ec',acc:'#ff7a1a'};
+function col(P,c){if(!c)return P.acc;if(P[c])return P[c];if(/^cat\d+$/.test(c))return CAT[+c.slice(3)%CAT.length];return c}
+
+/* ---------- chart primitives ---------- */
+function ticks(a,b,n){const st0=(b-a)/Math.max(n,1),p=10**Math.floor(Math.log10(st0)),m=st0/p,st=(m<1.5?1:m<3?2:m<7?5:10)*p,out=[];
+  for(let v=Math.ceil(a/st)*st;v<=b+st*1e-9;v+=st)out.push(Math.abs(v)<st*1e-9?0:v);return out}
+const tl=v=>{const a=Math.abs(v);return neg(a!==0&&(a>=1e5||a<1e-3)?v.toExponential(1):String(+v.toPrecision(6)))};
+function axes(ctx,X,Y,W,H,P,sc,xr,yr,xn,yn,o={}){
+  ctx.font=`${12*sc}px Inter,sans-serif`;const yt=ticks(yr[0],yr[1],Math.max(3,H/(60*sc))),xt=o.xticks||ticks(xr[0],xr[1],Math.max(3,W/(95*sc)));
+  const L=X+14*sc+Math.max(...yt.map(v=>ctx.measureText(tl(v)).width),10),T=Y+30*sc,Rr=X+W-(o.right||14)*sc,B=Y+H-40*sc;
+  const mx=x=>L+(x-xr[0])/(xr[1]-xr[0])*(Rr-L),my=y=>B-(y-yr[0])/(yr[1]-yr[0])*(B-T);
+  ctx.lineWidth=1*sc;ctx.strokeStyle=P.grid;ctx.fillStyle=P.mute;ctx.textBaseline='middle';ctx.textAlign='right';
+  yt.forEach(v=>{const y=my(v);ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(Rr,y);ctx.stroke();ctx.fillText(tl(v),L-8*sc,y)});
+  ctx.textAlign='center';ctx.textBaseline='top';
+  xt.forEach(v=>{const x=mx(v);ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,B);ctx.stroke();ctx.fillText(o.xfmt?o.xfmt(v):tl(v),x,B+7*sc)});
+  ctx.strokeStyle=P.line;ctx.strokeRect(L,T,Rr-L,B-T);
+  ctx.fillStyle=P.ink;ctx.font=`500 ${13*sc}px Inter,sans-serif`;ctx.fillText(xn,(L+Rr)/2,B+23*sc);
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.fillText(yn,L,T-10*sc);
+  return{L,T,Rr,B,mx,my,xr,yr};
+}
+function clipTo(ctx,g){ctx.save();ctx.beginPath();ctx.rect(g.L,g.T,g.Rr-g.L,g.B-g.T);ctx.clip()}
+function pathFn(ctx,g,f,x0,x1,N,lim){let on=false,prev=null;ctx.beginPath();
+  for(let i=0;i<=N;i++){const x=x0+(x1-x0)*i/N;let v=f(x);
+    if(!isFinite(v)||v<lim[0]||v>lim[1]){if(on&&isFinite(v)){ctx.lineTo(g.mx(x),g.my(Math.max(lim[0],Math.min(lim[1],v))))}on=false;prev=v;continue}
+    if(!on){if(prev!=null&&isFinite(prev)){ctx.moveTo(g.mx(x),g.my(Math.max(lim[0],Math.min(lim[1],prev))));ctx.lineTo(g.mx(x),g.my(v))}else ctx.moveTo(g.mx(x),g.my(v))}else ctx.lineTo(g.mx(x),g.my(v));on=true;prev=v}}
+function legend(ctx,g,P,sc,items){ctx.font=`${12*sc}px Inter,sans-serif`;ctx.textAlign='right';ctx.textBaseline='middle';let x=g.Rr;const y=g.T-14*sc;
+  for(let i=items.length-1;i>=0;i--){const it=items[i];ctx.fillStyle=P.mute;ctx.fillText(it.label,x,y);x-=ctx.measureText(it.label).width+6*sc;
+    if(it.dot){ctx.fillStyle=col(P,it.color);ctx.beginPath();ctx.arc(x-4*sc,y,3.6*sc,0,7);ctx.fill();x-=16*sc}
+    else if(it.band){ctx.fillStyle=col(P,it.color);ctx.globalAlpha=.25;ctx.fillRect(x-18*sc,y-5*sc,18*sc,10*sc);ctx.globalAlpha=1;x-=28*sc}
+    else{ctx.strokeStyle=col(P,it.color);ctx.lineWidth=2.4*sc;ctx.setLineDash(it.dash?it.dash.map(v=>v*sc):[]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-18*sc,y);ctx.stroke();ctx.setLineDash([]);x-=28*sc}}
+  ctx.textAlign='left';ctx.textBaseline='alphabetic'}
+function dataRange(){const[x0,x1]=minmax(D.x),[y0,y1]=minmax(D.y);let a=x0,b=x1,c=y0,d=y1;if(a===b){a-=1;b+=1}if(c===d){c-=1;d+=1}
+  const px=(b-a)*.04,py=(d-c)*.12;return{xr:[a-px,b+px],yr:[c-py,d+py]}}
+
+function drawMain(ctx,X,Y,W,H,P,sc){
+  ctx.fillStyle=P.bg;ctx.fillRect(X,Y,W,H);
+  if(!D){ctx.fillStyle=P.mute;ctx.font=`${15*sc}px Inter,sans-serif`;ctx.textAlign='center';ctx.fillText('Import a sheet, paste data or load the sample',X+W/2,Y+H/2);ctx.textAlign='left';return}
+  if(R&&R.drawMain)return R.drawMain(ctx,X,Y,W,H,P,sc);
+  let{xr,yr}=dataRange();
+  if(R&&R.bands){const span=yr[1]-yr[0];let lo=yr[0],hi=yr[1];
+    for(const b of R.bands)for(let i=0;i<=60;i++){const x=xr[0]+(xr[1]-xr[0])*i/60,l=b.lo(x),h=b.hi(x);if(isFinite(l))lo=Math.min(lo,l);if(isFinite(h))hi=Math.max(hi,h)}
+    yr=[Math.max(lo,yr[0]-1.5*span),Math.min(hi,yr[1]+1.5*span)]}
+  const g=axes(ctx,X,Y,W,H,P,sc,xr,yr,D.names[1],D.names[0]);
+  clipTo(ctx,g);const span=yr[1]-yr[0],lim=[yr[0]-20*span,yr[1]+20*span],N=Math.round(Math.min(1400,(g.Rr-g.L)/sc*1.2));
+  if(R&&R.bands)for(const b of R.bands){ctx.fillStyle=col(P,b.color);ctx.globalAlpha=b.alpha??.18;ctx.beginPath();
+    for(let i=0;i<=300;i++){const x=xr[0]+(xr[1]-xr[0])*i/300,v=Math.max(lim[0],Math.min(lim[1],b.hi(x)));i?ctx.lineTo(g.mx(x),g.my(v)):ctx.moveTo(g.mx(x),g.my(v))}
+    for(let i=300;i>=0;i--){const x=xr[0]+(xr[1]-xr[0])*i/300,v=Math.max(lim[0],Math.min(lim[1],b.lo(x)));ctx.lineTo(g.mx(x),g.my(v))}ctx.fill();ctx.globalAlpha=1}
+  if(R&&R.vlines)for(const v of R.vlines){ctx.strokeStyle=col(P,v.color||'mute');ctx.lineWidth=1*sc;ctx.setLineDash([4*sc,4*sc]);ctx.beginPath();ctx.moveTo(g.mx(v.x),g.T);ctx.lineTo(g.mx(v.x),g.B);ctx.stroke();ctx.setLineDash([])}
+  if(R&&R.segs){ctx.strokeStyle=P.mute;ctx.globalAlpha=.6;ctx.lineWidth=1*sc;ctx.beginPath();for(const s of R.segs){ctx.moveTo(g.mx(s[0]),g.my(s[1]));ctx.lineTo(g.mx(s[2]),g.my(s[3]))}ctx.stroke();ctx.globalAlpha=1}
+  const n=D.x.length,rr=(n>2000?1.8:n>400?2.6:3.6)*sc;
+  for(let i=0;i<n;i++){ctx.fillStyle=R&&R.ptColor?col(P,R.ptColor[i]):P.pt;ctx.globalAlpha=R&&R.ptAlpha?R.ptAlpha[i]:.85;ctx.beginPath();ctx.arc(g.mx(D.x[i]),g.my(D.y[i]),rr,0,7);ctx.fill()}
+  ctx.globalAlpha=1;
+  if(R&&R.curves)for(const c of R.curves){ctx.strokeStyle=col(P,c.color);ctx.lineWidth=(c.width||2.6)*sc;ctx.lineJoin='round';ctx.setLineDash(c.dash?c.dash.map(v=>v*sc):[]);
+    if(c.pts){ctx.beginPath();c.pts.forEach((p,i)=>i?ctx.lineTo(g.mx(p[0]),g.my(p[1])):ctx.moveTo(g.mx(p[0]),g.my(p[1])))}else{const[a,b]=c.extrap?xr:minmax(D.x);pathFn(ctx,g,c.f,a,b,N,lim)}ctx.stroke();ctx.setLineDash([])}
+  if(R&&R.marks)for(const m of R.marks){ctx.fillStyle=col(P,m.color);ctx.strokeStyle=P.bg;ctx.lineWidth=1.5*sc;ctx.beginPath();ctx.arc(g.mx(m.x),g.my(m.y),(m.r||5)*sc,0,7);ctx.fill();ctx.stroke()}
+  ctx.restore();
+  const items=[{label:`data (${n})`,dot:1,color:'pt'}];if(R&&R.bands)R.bands.forEach(b=>b.label&&items.push({label:b.label,band:1,color:b.color}));
+  if(R&&R.curves)R.curves.forEach(c=>c.label&&items.push({label:c.label,color:c.color,dash:c.dash}));legend(ctx,g,P,sc,items);
+}
+function drawSeries(ctx,X,Y,W,H,P,sc,S){
+  ctx.fillStyle=P.bg;ctx.fillRect(X,Y,W,H);if(!S)return;if(S.draw)return S.draw(ctx,X,Y,W,H,P,sc);
+  const all=S.series.flatMap(s=>s.pts).filter(p=>isFinite(p[0])&&isFinite(p[1]));if(!all.length)return;
+  let[x0,x1]=S.xr||minmax(all.map(p=>p[0])),[y0,y1]=S.yr||minmax(all.map(p=>p[1]).concat(S.series.some(s=>s.bars)?[0]:[]).concat((S.hlines||[]).map(h=>h.y)));
+  if(x0===x1){x0-=1;x1+=1}if(y0===y1){y0-=1;y1+=1}const bar=S.series.some(s=>s.bars);const px=bar?.6:(x1-x0)*.03,py=(y1-y0)*.08;
+  const g=axes(ctx,X,Y,W,H,P,sc,[x0-px,x1+px],[S.yr?y0:y0-py,S.yr?y1:y1+py],S.xlabel||'',S.ylabel||'',{xfmt:S.xfmt});
+  clipTo(ctx,g);
+  for(const h of S.hlines||[]){ctx.strokeStyle=col(P,h.color||'mute');ctx.lineWidth=1.2*sc;ctx.setLineDash(h.dash?h.dash.map(v=>v*sc):[5*sc,4*sc]);ctx.beginPath();ctx.moveTo(g.L,g.my(h.y));ctx.lineTo(g.Rr,g.my(h.y));ctx.stroke();ctx.setLineDash([])}
+  for(const v of S.vlines||[]){ctx.strokeStyle=col(P,v.color||'mute');ctx.lineWidth=1.2*sc;ctx.setLineDash([5*sc,4*sc]);ctx.beginPath();ctx.moveTo(g.mx(v.x),g.T);ctx.lineTo(g.mx(v.x),g.B);ctx.stroke();ctx.setLineDash([])}
+  for(const s of S.series){const c=col(P,s.color||'pt'),pts=s.pts.filter(p=>isFinite(p[0])&&isFinite(p[1]));
+    if(s.bars){const w=Math.max(1.5*sc,(g.mx(1)-g.mx(0))*.7);ctx.fillStyle=c;for(const p of pts){const y=g.my(p[1]),z=g.my(0);ctx.fillRect(g.mx(p[0])-w/2,Math.min(y,z),w,Math.abs(z-y))}}
+    if(s.line!==false&&!s.bars){ctx.strokeStyle=c;ctx.lineWidth=(s.width||1.8)*sc;ctx.setLineDash(s.dash?s.dash.map(v=>v*sc):[]);ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(g.mx(p[0]),g.my(p[1])):ctx.moveTo(g.mx(p[0]),g.my(p[1])));ctx.stroke();ctx.setLineDash([])}
+    if(s.dots){ctx.fillStyle=c;ctx.globalAlpha=s.alpha??1;for(const p of pts){ctx.beginPath();ctx.arc(g.mx(p[0]),g.my(p[1]),(s.r||2.6)*sc,0,7);ctx.fill()}ctx.globalAlpha=1}}
+  if(S.mark){ctx.fillStyle=P.acc;ctx.beginPath();ctx.arc(g.mx(S.mark[0]),g.my(S.mark[1]),6*sc,0,7);ctx.fill()}
+  ctx.restore();const items=S.series.filter(s=>s.label).map(s=>({label:s.label,color:s.color||'pt',dot:s.dots&&s.line===false}));if(items.length)legend(ctx,g,P,sc,items);
+}
+function sizeCanvas(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;cv.width=Math.max(1,r.width*dpr);cv.height=Math.max(1,r.height*dpr);
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);return[ctx,r.width,r.height]}
+function draw(){const P=pal();{const[ctx,W,H]=sizeCanvas($('cv'));drawMain(ctx,0,0,W,H,P,1)}{const[ctx,W,H]=sizeCanvas($('cv2'));drawSeries(ctx,0,0,W,H,P,1,R&&R.chart2)}}
+const ro=new ResizeObserver(()=>draw());ro.observe($('fig'));ro.observe($('cv2').parentElement);
+
+/* ---------- render ---------- */
+const sigv=()=>+$('sig').value;
+function renderEqHTML(eq){return eq.groups.map(g=>g==='BR'?'<br>':'<span class="t">'+g.map(s=>s[1]===1?`<sup>${esc(s[0])}</sup>`:s[1]===2?`<sub>${esc(s[0])}</sub>`:esc(s[0])).join('')+'</span>').join('')}
+function render(){
+  if(!R){$('stats').innerHTML='';$('eq').textContent='y = …';$('tb').innerHTML='';$('th').innerHTML='';$('eqnote').textContent='';$('c2Title').textContent='';$('c2Cap').textContent='';draw();return}
+  $('stats').innerHTML=R.stats.map(r=>`<div><dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd></div>`).join('');
+  $('eq').innerHTML=renderEqHTML(R.eq(sigv()));$('eqnote').textContent=R.note||'';
+  const T=R.table?R.table(sigv()):null;$('tbTitle').textContent=R.tbTitle||'Coefficients';
+  if(T){$('th').innerHTML='<tr>'+T.head.map(h=>`<th class="${h.n?'n':''}">${esc(h.t)}</th>`).join('')+'</tr>';
+    $('tb').innerHTML=T.rows.map(r=>`<tr class="${r.dim?'z':''}">`+r.cells.map((c,i)=>`<td class="${T.head[i]&&T.head[i].n?'n':''}">${c&&c.h!=null?c.h:esc(c)}</td>`).join('')+'</tr>').join('')}
+  else{$('th').innerHTML='';$('tb').innerHTML=''}
+  $('c2Title').textContent=R.chart2?R.chart2.title:'';$('c2Cap').textContent=R.chart2&&R.chart2.caption||'';draw();
+}
+function setStatus(msg,err){$('status').innerHTML=err?`<span class="err">${esc(msg)}</span>`:msg}
+let runId=0;
+function run(){if(!D){R=null;render();return}const id=++runId;document.body.classList.add('busy');
+  setTimeout(()=>{if(id!==runId)return;try{R=M.fit(D,M.opts())}catch(e){R=null;console.error(e);setStatus('Fit failed: '+e.message,true)}render();document.body.classList.remove('busy')},30)}
+
+/* ---------- data in ---------- */
+function num(v){if(typeof v==='number')return v;if(v==null)return NaN;const s=String(v).trim();if(!s)return NaN;let x=Number(s);if(isNaN(x))x=Number(s.replace(',','.'));return x}
+function rowsToData(rows,src){
+  rows=rows.filter(r=>r&&r.some(c=>c!==''&&c!=null));if(!rows.length){setStatus('That sheet is empty.',true);return}
+  const minC=M.minCols||2,maxC=M.maxCols||2,h=rows[0];let start=0;
+  const nc=Math.min(maxC,Math.max(minC,...rows.slice(0,5).map(r=>r.length)));
+  const isHead=!(isFinite(num(h[0]))&&isFinite(num(h[1])));if(isHead)start=1;
+  const names=Array.from({length:nc},(_,j)=>isHead&&String(h[j]??'').trim()?String(h[j]).trim():(M.defNames||['y','x','x2','x3','x4'])[j]||'c'+j);
+  const cols=Array.from({length:nc},()=>[]);let skip=0;
+  for(let i=start;i<rows.length;i++){const v=Array.from({length:nc},(_,j)=>num(rows[i][j]));
+    if(v.slice(0,minC).every(isFinite)&&(M.allCols?v.every(isFinite):true)){v.forEach((x,j)=>cols[j].push(x))}else skip++}
+  if(cols[0].length<(M.minRows||3)){setStatus(`Need at least ${M.minRows||3} rows with numbers in the first ${minC} columns.`,true);return}
+  D={cols,names,y:cols[0],x:cols[1],n:cols[0].length,src};M.onData?.(D);
+  setStatus(`<b>${esc(src)}</b> · ${D.n} points${skip?` · ${skip} row${skip>1?'s':''} skipped (not numeric)`:''}`);run();
+}
+function parseText(t){const L=t.split(/\r?\n/).filter(l=>l.trim());if(!L.length)return[];const f=L[0];
+  const d=f.includes('\t')?'\t':f.includes(';')?';':f.includes(',')?',':/\s+/;
+  return L.map(l=>l.trim().split(d).map(s=>s.trim().replace(/^"(.*)"$/,'$1')))}
+async function loadFile(file){
+  fileName=file.name.replace(/\.[^.]+$/,'');const ext=file.name.split('.').pop().toLowerCase();
+  try{
+    if(['csv','tsv','txt'].includes(ext)||!window.XLSX){wb=null;$('sheetWrap').hidden=true;rowsToData(parseText(await file.text()),file.name);return}
+    wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+    $('sheet').innerHTML=wb.SheetNames.map((n,i)=>`<option value="${i}">${esc(n)}</option>`).join('');$('sheetWrap').hidden=wb.SheetNames.length<2;useSheet(0,file.name);
+  }catch(e){setStatus('Could not read that file: '+e.message,true)}
+}
+function useSheet(i,name){const sn=wb.SheetNames[i];rowsToData(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,blankrows:false,defval:''}),wb.SheetNames.length>1?`${name} · ${sn}`:name)}
+function loadSample(){const s=M.sample(M.opts());fileName='sample';wb=null;$('sheetWrap').hidden=true;rowsToData(s.rows,s.label)}
+
+/* ---------- export ---------- */
+async function saveBlob(blob,name,dataUrl){
+  if(window.claude&&window.claude.use){try{const dl=await window.claude.use('downloads');if(dl){await dl.save({filename:name,data:blob});return}}catch(e){if(e&&e.code==='declined')return}}
+  else{try{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);return}catch(e){}}
+  $('imgOut').src=dataUrl;$('imgM').classList.add('on');
+}
+async function exportImg(){
+  if(!R){setStatus('Load data first, then export.',true);return}
+  try{await document.fonts.ready}catch(e){}
+  const sc=2,W=900*sc,pad=36*sc,cw=W-2*pad,m=document.createElement('canvas').getContext('2d');
+  const eqF=`500 ${17*sc}px Inter,sans-serif`,supF=`500 ${11.5*sc}px Inter,sans-serif`,lh=34*sc,groups=R.eq(sigv()).groups;
+  const gw=g=>g.reduce((w,s)=>{m.font=s[1]?supF:eqF;return w+m.measureText(s[0]).width},0);
+  const lines=[[]];let lw=0;groups.forEach(g=>{if(g==='BR'){lines.push([]);lw=0;return}const w=gw(g);if(lw+w>cw&&lines[lines.length-1].length){lines.push([]);lw=0}lines[lines.length-1].push(g);lw+=w});
+  const chartH=500*sc,top=pad+70*sc,H=top+chartH+24*sc+lines.length*lh+pad;
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const ctx=cv.getContext('2d');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.fillStyle='#4fb3e8';ctx.fillRect(0,0,W,8*sc);
+  ctx.fillStyle=LIGHT.ink;ctx.font=`600 ${26*sc}px Outfit,Inter,sans-serif`;ctx.fillText(R.exportTitle||document.querySelector('h1').textContent,pad,pad+24*sc);
+  ctx.fillStyle=LIGHT.mute;ctx.font=`${13*sc}px Inter,sans-serif`;
+  let sub=R.exportSub||R.stats.map(s=>`${s[0]} ${s[1]}`).join(' · ');while(m.measureText&&(()=>{m.font=`${13*sc}px Inter,sans-serif`;return m.measureText(sub).width>cw})())sub=sub.replace(/ · [^·]*$/,'');
+  ctx.fillText(sub,pad,pad+48*sc);
+  drawMain(ctx,pad,top,cw,chartH,LIGHT,sc);
+  let y=top+chartH+24*sc+lh*.7;ctx.fillStyle=LIGHT.ink;
+  lines.forEach(Ln=>{let x=pad;Ln.forEach(g=>g.forEach(s=>{ctx.font=s[1]?supF:eqF;ctx.fillText(s[0],x,s[1]===1?y-9*sc:s[1]===2?y+6*sc:y);x+=ctx.measureText(s[0]).width}));y+=lh});
+  const blob=await new Promise(r=>cv.toBlob(r,'image/png')),name=`${(fileName||'fit').replace(/[^\w.-]+/g,'_')}_${M.tag||'fit'}.png`;
+  await saveBlob(blob,name,cv.toDataURL('image/png'));
+}
+
+/* ---------- events ---------- */
+async function copy(txt,btn){const old=btn.textContent;try{await navigator.clipboard.writeText(txt);btn.textContent='Copied'}catch(e){
+  const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');btn.textContent='Copied'}catch(_){btn.textContent='Copy failed'}ta.remove()}
+  setTimeout(()=>btn.textContent=old,1400)}
+$('file').addEventListener('change',e=>{const f=e.target.files[0];if(f)loadFile(f);e.target.value=''});
+$('sampleBtn').addEventListener('click',loadSample);
+$('exportBtn').addEventListener('click',()=>exportImg().catch(e=>setStatus('Export failed: '+e.message,true)));
+$('pasteBtn').addEventListener('click',()=>{$('pasteM').classList.add('on');$('pasteTa').focus()});
+$('pasteNo').addEventListener('click',()=>$('pasteM').classList.remove('on'));
+$('pasteOk').addEventListener('click',()=>{$('pasteM').classList.remove('on');fileName='pasted';wb=null;$('sheetWrap').hidden=true;rowsToData(parseText($('pasteTa').value),'Pasted data')});
+$('imgNo').addEventListener('click',()=>$('imgM').classList.remove('on'));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.on').forEach(m=>m.classList.remove('on'))});
+$('sheet').addEventListener('change',e=>useSheet(+e.target.value,fileName));
+$('sig').addEventListener('change',render);
+$('copyTxt').addEventListener('click',e=>R&&copy(R.eq(sigv()).plain,e.currentTarget));
+$('copyTex').addEventListener('click',e=>R&&copy(R.eq(sigv()).latex,e.currentTarget));
+$('ctrl').addEventListener('input',e=>{const o=$(e.target.id+'Out');if(o)o.textContent=e.target.value});
+$('ctrl').addEventListener('change',e=>{M.ui?.();if(!(M.renderOnly||[]).includes(e.target.id))run();else render()});
+['dragover','dragenter'].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();document.body.classList.add('drop')}));
+['dragleave','drop'].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();if(t==='drop'||!e.relatedTarget)document.body.classList.remove('drop')}));
+document.addEventListener('drop',e=>{const f=e.dataTransfer&&e.dataTransfer.files[0];if(f)loadFile(f)});
+new MutationObserver(()=>draw()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+M.ui?.();loadSample();
+
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Curve Fitting Toolkit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a calm instrument catalogue.
+   IDEA: a drawer of plotting instruments, each labelled with what it draws.
+   PICTURE: one large scatter with several model curves through it.
+   COLOUR and TYPE: sky field, white, deep ink, orange for models; Outfit + Inter.
+   LAYOUT: sky band with title and picture, then grouped cards. */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0b1726);--ink:light-dark(#10223a,#e6eef6);--mute:light-dark(#4d5f75,#9fb2c6);
+--sky:light-dark(#4fb3e8,#123a5c);--skyink:light-dark(#10223a,#e6eef6);--acc:#ff7a1a;--pt:light-dark(#1d6fa8,#7ccaf2);--card:light-dark(#f4f8fb,#102238);--line:light-dark(#d9e3ec,#22384f)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(28px,4vw,56px) max(5vw,16px)}.wrap{max-width:1240px;margin:0 auto}
+.top{background:var(--sky);color:var(--skyink)}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:32px;align-items:center}
+h1{font:600 clamp(32px,4.6vw,52px)/1.05 Outfit,Inter,sans-serif;margin:0 0 14px;text-wrap:balance}
+h2{font:600 24px/1.2 Outfit,Inter,sans-serif;margin:0 0 4px}
+.top p{margin:0 0 10px;max-width:56ch}
+.pic{width:100%;height:auto;display:block}
+.group{margin-top:36px}.group>p{color:var(--mute);margin:0 0 16px;max-width:70ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:16px}
+a.card{display:grid;grid-template-rows:auto 1fr auto;gap:8px;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px 18px;min-height:44px;transition:transform .15s,border-color .15s}
+a.card:hover,a.card:focus-visible{border-color:var(--acc);transform:translateY(-2px);outline:none}
+a.card:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.card svg{width:100%;height:64px}
+.card b{font:600 18px/1.25 Outfit,Inter,sans-serif}
+.card span{font-size:15px;color:var(--mute)}
+.note{font-size:14px;color:var(--mute);border-top:1px solid var(--line);margin-top:40px;padding-top:16px}
+@media(max-width:760px){.hero{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){a.card{transition:none}}
+</style>
+</head>
+<body>
+<header class="band top"><div class="wrap hero">
+  <div>
+    <h1>Curve fitting toolkit</h1>
+    <p>Fifteen tools that turn a sheet of y, x data into a best-fit curve, its equation and an exportable image. Each one gauges "best" differently.</p>
+    <p>Open a tool, press <b>Load sample</b> to see it work, then import your own .xlsx, .csv or pasted data.</p>
+  </div>
+  <svg class="pic" viewBox="0 0 560 300" role="img" aria-label="Scattered data with several model curves passing through it">
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".55"/><stop offset="1" stop-color="#ffffff" stop-opacity=".15"/></linearGradient></defs>
+    <rect x="10" y="10" width="540" height="280" rx="18" fill="url(#g)"/>
+    <g stroke="#10223a" stroke-opacity=".12">
+      <line x1="40" x2="520" y1="70" y2="70"/><line x1="40" x2="520" y1="130" y2="130"/><line x1="40" x2="520" y1="190" y2="190"/><line x1="40" x2="520" y1="250" y2="250"/></g>
+    <path d="M40 230 C 120 220, 150 120, 220 115 S 320 190, 380 160 S 470 70, 520 60" fill="none" stroke="#10223a" stroke-opacity=".35" stroke-width="10" stroke-linecap="round"/>
+    <path d="M40 230 C 120 220, 150 120, 220 115 S 320 190, 380 160 S 470 70, 520 60" fill="none" stroke="#ff7a1a" stroke-width="5" stroke-linecap="round"/>
+    <path d="M40 222 C 110 210, 160 140, 220 128 S 330 170, 380 150 S 470 90, 520 72" fill="none" stroke="#10223a" stroke-width="2" stroke-dasharray="7 6" opacity=".55"/>
+    <g fill="#10223a">
+      <circle cx="52" cy="236" r="5"/><circle cx="78" cy="222" r="5"/><circle cx="96" cy="214" r="5"/><circle cx="120" cy="190" r="5"/><circle cx="138" cy="160" r="5"/><circle cx="160" cy="142" r="5"/><circle cx="182" cy="122" r="5"/><circle cx="204" cy="118" r="5"/><circle cx="228" cy="106" r="5"/><circle cx="250" cy="130" r="5"/><circle cx="272" cy="150" r="5"/><circle cx="296" cy="170" r="5"/><circle cx="318" cy="186" r="5"/><circle cx="342" cy="176" r="5"/><circle cx="364" cy="168" r="5"/><circle cx="388" cy="150" r="5"/><circle cx="410" cy="126" r="5"/><circle cx="436" cy="104" r="5"/><circle cx="458" cy="88" r="5"/><circle cx="482" cy="76" r="5"/><circle cx="506" cy="62" r="5"/></g>
+    <circle cx="300" cy="60" r="6" fill="#d64545"/><circle cx="160" cy="250" r="6" fill="#d64545"/>
+  </svg>
+</div></header>
+
+<main class="band"><div class="wrap" id="groups"></div>
+<div class="wrap"><p class="note">Every tool is a single self-contained HTML file. Keep all of them in the same folder so these links work. Reading .xlsx files needs an internet connection the first time (a spreadsheet library loads from a CDN); .csv and pasted data always work offline.</p></div></main>
+
+<script>
+{
+const G=[
+ {t:'Polynomials',d:'Different ways to fit y = a₀ + a₁x + … with some coefficients allowed to be zero.',items:[
+  ['polyfit','Original: monomial best fit','Up to degree 50 in plain powers of x, degree chosen by AICc.','M0 50 C30 10 60 60 90 30 S140 50 160 15'],
+  ['chebyshev','Chebyshev fit','Stable up to a genuine degree 50; equation as a Chebyshev series.','M0 40 C10 10 20 60 35 25 S55 55 70 20 S95 50 110 25 S140 50 160 20'],
+  ['minimax','Minimax (Remez)','Smallest worst-case error; the error equioscillates.','M0 32 L20 22 L40 42 L60 22 L80 42 L100 22 L120 42 L140 22 L160 32'],
+  ['constrained','Shape-constrained','Always rising, convex, bounded, or through fixed points.','M0 58 C40 20 80 12 160 10'],
+  ['lasso','Lasso','L1 penalty picks the powers to keep; see the regularisation path.','M0 30 L160 30 M40 30 L160 10 M80 30 L160 50 M120 30 L160 22']]},
+ {t:'Other model families',d:'Same "simplest model that fits" idea with different building blocks.',items:[
+  ['splines','Regression splines','Cubic pieces joined smoothly at knots chosen by AICc.','M0 50 C20 50 30 20 50 22 S70 50 90 40 S120 10 160 12 M50 0 L50 64 M90 0 L90 64 M125 0 L125 64'],
+  ['rational','Rational p(x)/q(x)','Asymptotes, poles and sharp peaks; least squares or AAA.','M0 40 C40 38 60 30 70 10 M74 60 C84 34 110 30 160 28'],
+  ['fourier','Fourier series','Finds the period, then the fewest harmonics needed.','M0 32 C10 5 30 5 40 32 S70 59 80 32 S110 5 120 32 S150 59 160 32'],
+  ['exponentials','Sums of exponentials','Decay or growth rates by variable projection.','M0 6 C20 40 50 52 160 56'],
+  ['sindy','SINDy','Picks functions from a library; can discover dy/dx = f(x, y).','M0 56 C40 56 60 8 100 8 S140 8 160 8']]},
+ {t:'Uncertainty and messy data',d:'How sure is the fit, and what if the data misbehaves.',items:[
+  ['bands','Confidence and prediction bands','Classical, bootstrap or Bayesian evidence.','M0 40 C50 20 110 20 160 40 M0 30 C50 8 110 8 160 30 M0 50 C50 32 110 32 160 50'],
+  ['robust','Robust fitting','Huber, bisquare and RANSAC ignore outliers.','M0 50 L160 14 M40 8 L40 8 M120 60 L120 60'],
+  ['odr','Orthogonal distance','Errors in x and y; points move perpendicular to the curve.','M0 56 C50 10 110 10 160 56 M40 40 L52 30 M110 18 L104 30'],
+  ['gp','Gaussian process','No formula to choose; uncertainty grows in gaps.','M0 30 C30 10 50 50 80 30 S130 10 160 30 M0 18 C30 0 50 40 80 14 M0 42 C30 22 50 62 80 46']]},
+ {t:'More than one input',d:'',items:[
+  ['multivariate','Multivariate polynomial','y against up to four inputs with cross terms; heat-map view.','M10 54 L10 10 L150 10 L150 54 Z M10 32 C50 10 100 54 150 32']]}];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+document.getElementById('groups').innerHTML=G.map(g=>`<section class="group"><h2>${esc(g.t)}</h2>${g.d?`<p>${esc(g.d)}</p>`:'<p></p>'}<div class="grid">${g.items.map(([f,t,d,p])=>`<a class="card" href="${f}.html"><svg viewBox="-4 -4 168 72" aria-hidden="true"><path d="${p}" fill="none" stroke="var(--acc)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg><b>${esc(t)}</b><span>${esc(d)}</span></a>`).join('')}</div></section>`).join('');
+}
+</script>
+</body>
+</html>

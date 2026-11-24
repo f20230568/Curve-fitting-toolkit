@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polynomial Best Fit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* VOICE: a precise lab instrument, calm and exact.
+   IDEA: a plotter's worksheet: the chart is the instrument, the equation its printout.
+   PICTURE: the live data-and-curve chart, large, at the top.
+   COLOUR and TYPE: sky field, white, deep ink, orange for the fitted curve; Outfit + Inter.
+   LAYOUT: sky band with title and actions, chart + control column, equation strip, coefficients + criterion, method. */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0b1726);--ink:light-dark(#10223a,#e6eef6);--mute:light-dark(#4d5f75,#9fb2c6);
+--sky:light-dark(#4fb3e8,#123a5c);--skyink:light-dark(#10223a,#e6eef6);--acc:#ff7a1a;--pt:light-dark(#1d6fa8,#7ccaf2);
+--card:light-dark(#f4f8fb,#102238);--line:light-dark(#d9e3ec,#22384f);--grid:light-dark(#e7eef4,#1a2e45)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(20px,3.5vw,48px) max(5vw,16px)}
+.wrap{max-width:1240px;margin:0 auto}
+.top{background:var(--sky);color:var(--skyink);padding-bottom:clamp(18px,2.5vw,30px)}
+.top .wrap{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:flex-end;justify-content:space-between}
+h1{font:600 clamp(28px,4vw,44px)/1.05 Outfit,Inter,sans-serif;margin:0 0 6px;text-wrap:balance}
+h2{font:600 22px/1.2 Outfit,Inter,sans-serif;margin:0 0 12px}
+.top p{margin:0;max-width:60ch}
+.acts{display:flex;flex-wrap:wrap;gap:10px}
+button,.btn{font:500 15px Inter,sans-serif;min-height:44px;padding:0 16px;border-radius:10px;border:1.5px solid currentColor;background:transparent;color:inherit;cursor:pointer;display:inline-flex;align-items:center}
+button.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.top button.pri{background:var(--skyink);color:var(--sky);border-color:var(--skyink)}
+button:focus-visible,.btn:focus-within,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.btn input{position:absolute;width:1px;height:1px;opacity:0}
+.status{font-size:14px;color:var(--mute);margin:0 0 14px}
+.status b{color:var(--ink);font-weight:600}
+.err{color:#d23b1f}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.fig{position:relative;min-height:440px;height:56vh;max-height:620px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}
+.fig>canvas{position:absolute;inset:0;width:100%;height:100%}
+aside{display:grid;gap:14px}
+label{display:grid;gap:4px;font-size:14px;font-weight:500}
+select,input[type=number],textarea{font:16px Inter,sans-serif;min-height:44px;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+input[type=range]{width:100%;accent-color:var(--acc);min-height:32px}
+.chk{display:flex;gap:10px;align-items:center;min-height:44px}
+.chk input{width:22px;height:22px;accent-color:var(--acc)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 0;padding:14px;border-radius:12px;background:var(--card)}
+.stats div{display:grid}.stats dt{font-size:13px;color:var(--mute)}.stats dd{margin:0;font:600 20px Outfit,Inter,sans-serif;white-space:nowrap}
+.eq{margin-top:24px;padding:18px 20px;border-radius:14px;background:var(--card);border-left:4px solid var(--acc)}
+.eqtext{font:500 clamp(17px,1.8vw,21px)/1.9 Inter,sans-serif;overflow-wrap:anywhere}
+.eqtext .t{white-space:nowrap}
+sup{font-size:.68em;line-height:0}
+.eqbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.eqbar .note{font-size:14px;color:var(--mute);flex:1 1 220px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;margin-top:28px}
+.scroll{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:8px 12px;border-bottom:1px solid var(--line);text-align:left}
+th{position:sticky;top:0;background:var(--card);font-weight:600;font-size:14px}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.z td{color:var(--mute)}
+.fig.sm{min-height:260px;height:300px}
+.method{border-top:1px solid var(--line);margin-top:36px}
+.method .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:8px 40px}
+.method p{max-width:70ch;margin:0 0 12px}
+.f{display:block;font:500 17px/1.6 Inter,sans-serif;padding:8px 14px;margin:6px 0 14px;background:var(--card);border-radius:10px;overflow-x:auto;white-space:nowrap}
+.modal{position:fixed;inset:0;background:rgba(6,14,26,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
+.modal.on{display:flex}
+.box{background:var(--bg);color:var(--ink);border-radius:16px;padding:20px;width:min(760px,100%);max-height:92vh;overflow:auto;display:grid;gap:12px}
+.box img{width:100%;border-radius:8px;border:1px solid var(--line)}
+.drop{outline:4px dashed var(--acc);outline-offset:-12px}
+.busy{opacity:.55;transition:opacity .2s}
+@media(prefers-reduced-motion:reduce){.busy{transition:none}}
+@media(max-width:860px){.main,.two{grid-template-columns:minmax(0,1fr)}.fig{height:auto;min-height:360px}}
+@media(max-width:600px){table{font-size:13px}.stats dd{font-size:18px}}
+#probe span{position:absolute;visibility:hidden}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="band top"><div class="wrap">
+  <div><p style="font-size:14px;margin:0 0 6px"><a href="index.html" style="color:inherit">All fitting tools</a></p><h1>Polynomial best fit, up to degree 50</h1>
+  <p>Import a sheet whose first row is the header <b>y, x</b>. The page finds the degree the data supports, drops the terms it doesn't need, and gives you the curve and the equation.</p></div>
+  <div class="acts">
+    <label class="btn" for="file">Import sheet<input id="file" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.ods"></label>
+    <button id="pasteBtn" type="button">Paste data</button>
+    <button id="sampleBtn" type="button">Load sample</button>
+    <button id="exportBtn" type="button" class="pri">Export image</button>
+  </div>
+</div></header>
+
+<main class="band"><div class="wrap">
+  <p class="status" id="status">No data yet.</p>
+  <div class="main">
+    <div class="fig" id="fig"><canvas id="cv"></canvas></div>
+    <aside>
+      <label id="sheetWrap" hidden>Sheet<select id="sheet"></select></label>
+      <label>Choose degree by
+        <select id="method">
+          <option value="aicc">AICc (recommended)</option>
+          <option value="bic">BIC (prefers simpler)</option>
+          <option value="loocv">Leave-one-out cross-validation</option>
+          <option value="gcv">Generalised cross-validation</option>
+          <option value="fixed">Fixed degree</option>
+        </select></label>
+      <label id="maxWrap">Highest degree to try: <span id="maxOut">50</span><input id="maxdeg" type="range" min="1" max="50" value="50"></label>
+      <label id="fixWrap" hidden>Degree<input id="fixdeg" type="number" min="0" max="50" value="3"></label>
+      <label class="chk"><input id="prune" type="checkbox" checked>Set unneeded coefficients to 0</label>
+      <label>Expand around
+        <select id="origin"><option value="auto">Automatic</option><option value="zero">x = 0 (plain powers of x)</option><option value="mid">Middle of the x range</option></select></label>
+      <label>Significant figures<select id="sig"><option>4</option><option selected>6</option><option>8</option><option>10</option><option>15</option></select></label>
+      <dl class="stats" id="stats"></dl>
+    </aside>
+  </div>
+
+  <section class="eq" aria-live="polite">
+    <div class="eqtext" id="eq">y = …</div>
+    <div class="eqbar">
+      <label id="formWrap" hidden style="flex:0 1 260px">Show as<select id="form"><option value="c">Powers of (x − c)</option><option value="x">Expanded powers of x</option></select></label>
+      <span class="note" id="eqnote"></span>
+      <button type="button" id="copyTxt">Copy as text</button>
+      <button type="button" id="copyTex">Copy LaTeX</button>
+    </div>
+  </section>
+
+  <div class="two">
+    <section><h2>Coefficients</h2><div class="scroll"><table><thead><tr><th>Term</th><th style="text-align:right">Coefficient</th><th id="stH">Status</th></tr></thead><tbody id="tb"></tbody></table></div></section>
+    <section><h2 id="critTitle">Score by degree</h2><div class="fig sm"><canvas id="cv2"></canvas></div><p class="status" style="margin-top:8px">Lower is better. The orange dot is the degree chosen before any terms were removed.</p></section>
+  </div>
+
+  <section class="method">
+    <h2 style="margin-top:28px">How the best fit is found</h2>
+    <div class="cols">
+    <div>
+      <p><b>Model.</b> For a set of powers S ⊆ {0, 1, …, 50}, the curve is</p>
+      <span class="f">ŷ(x) = Σ<sub>k∈S</sub> a<sub>k</sub> t<sup>k</sup>, &nbsp; t = (x − c) / s</span>
+      <p>where c is the expansion point and s = max|x − c|, so t lies in [−1, 1]. With c = 0 this is exactly y = a₀ + a₁x + … + a₅₀x⁵⁰, and a coefficient that is 0 stays 0 in x.</p>
+      <p><b>Least squares.</b> With V the matrix of columns t<sup>k</sup>, the coefficients minimise the residual sum of squares</p>
+      <span class="f">RSS = ‖y − Va‖², &nbsp; solved by V = QR, &nbsp; Ra = Qᵀy</span>
+      <p>QR with Householder reflections and column pivoting is used instead of the normal equations VᵀVa = Vᵀy, which square the conditioning and fail long before degree 50. Powers that are numerically indistinguishable from the others are dropped (coefficient 0).</p>
+    </div>
+    <div>
+      <p><b>Gauging "best".</b> RSS always falls as the degree rises, so it cannot pick the degree on its own. Each candidate with p non-zero coefficients and n points is scored, and the lowest score wins:</p>
+      <span class="f">AICc = n ln(RSS/n) + 2p + 2p(p+1)/(n−p−1)</span>
+      <span class="f">BIC = n ln(RSS/n) + p ln n</span>
+      <span class="f">LOOCV = (1/n) Σ (e<sub>i</sub> / (1 − h<sub>ii</sub>))², &nbsp; h<sub>ii</sub> = Σ<sub>j</sub> Q<sub>ij</sub>²</span>
+      <span class="f">GCV = n · RSS / (n − p)²</span>
+      <p><b>Zero coefficients.</b> After the degree is chosen, the term with the smallest |t-statistic|, |a<sub>k</sub>| / SE(a<sub>k</sub>), is removed and the model refitted, as long as that lowers the same score. Fit quality is reported as R² = 1 − RSS/TSS and RMSE = √(RSS/n).</p>
+    </div>
+    </div>
+  </section>
+</div></main>
+
+<div class="modal" id="pasteM" role="dialog" aria-modal="true" aria-labelledby="pT"><div class="box">
+  <h2 id="pT">Paste data</h2>
+  <p class="status" style="margin:0">Two columns, y then x, separated by tabs, commas, semicolons or spaces. First row is the header.</p>
+  <textarea id="pasteTa" rows="10" placeholder="y	x&#10;1.2	0&#10;3.4	1"></textarea>
+  <div class="acts"><button type="button" class="pri" id="pasteOk">Use this data</button><button type="button" id="pasteNo">Cancel</button></div>
+</div></div>
+<div class="modal" id="imgM" role="dialog" aria-modal="true" aria-labelledby="iT"><div class="box">
+  <h2 id="iT">Your image</h2>
+  <p class="status" style="margin:0" id="imgMsg">Right-click or long-press the image to save it.</p>
+  <img id="imgOut" alt="Exported chart with equation">
+  <div class="acts"><button type="button" id="imgNo">Close</button></div>
+</div></div>
+<div id="probe"><span style="color:var(--ink)"></span><span style="color:var(--mute)"></span><span style="color:var(--grid)"></span><span style="color:var(--pt)"></span><span style="color:var(--bg)"></span><span style="color:var(--line)"></span></div>
+
+<script>
+{
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const MAXK=50;
+let D={xs:[],ys:[],xn:'x',yn:'y',src:'',skip:0},R=null,wb=null,fileName='';
+const dlP=(window.claude&&window.claude.use)?window.claude.use('downloads').catch(()=>null):Promise.resolve(null);
+
+/* ---------- numerics ---------- */
+function fitCols(P,y,cols,needH){
+  const n=y.length,m=cols.length,A=cols.map(k=>Float64Array.from(P[k])),perm=cols.slice(),qy=Float64Array.from(y),V=[];
+  let r=0,r00=0;
+  for(let k=0;k<m&&k<n;k++){
+    let best=-1,bi=k;
+    for(let j=k;j<m;j++){let s=0;const c=A[j];for(let i=k;i<n;i++)s+=c[i]*c[i];if(s>best){best=s;bi=j}}
+    if(bi!==k){[A[k],A[bi]]=[A[bi],A[k]];[perm[k],perm[bi]]=[perm[bi],perm[k]]}
+    const nrm=Math.sqrt(best);if(k===0)r00=nrm;
+    if(nrm===0||nrm<=1e-11*r00)break;
+    const c=A[k],alpha=c[k]>0?-nrm:nrm,v=new Float64Array(n-k);
+    for(let i=k;i<n;i++)v[i-k]=c[i];v[0]-=alpha;
+    let vn=0;for(let i=0;i<v.length;i++)vn+=v[i]*v[i];
+    const ap=z=>{let s=0;for(let i=k;i<n;i++)s+=v[i-k]*z[i];s=2*s/vn;for(let i=k;i<n;i++)z[i]-=s*v[i-k]};
+    for(let j=k+1;j<m;j++)ap(A[j]);ap(qy);c[k]=alpha;V.push([v,vn]);r=k+1;
+  }
+  const b=new Float64Array(r);
+  for(let j=r-1;j>=0;j--){let s=qy[j];for(let l=j+1;l<r;l++)s-=A[l][j]*b[l];b[j]=s/A[j][j]}
+  const coef=new Float64Array(MAXK+1);for(let j=0;j<r;j++)coef[perm[j]]=b[j];
+  const e=new Float64Array(n);let rss=0;
+  for(let i=0;i<n;i++){let f=0;for(let j=0;j<r;j++)f+=b[j]*P[perm[j]][i];e[i]=y[i]-f;rss+=e[i]*e[i]}
+  let h=null;
+  if(needH){h=new Float64Array(n);
+    for(let j=0;j<r;j++){const q=new Float64Array(n);q[j]=1;
+      for(let k=r-1;k>=0;k--){const[v,vn]=V[k];let s=0;for(let i=k;i<n;i++)s+=v[i-k]*q[i];s=2*s/vn;for(let i=k;i<n;i++)q[i]-=s*v[i-k]}
+      for(let i=0;i<n;i++)h[i]+=q[i]*q[i]}}
+  const dg=new Float64Array(r);
+  for(let j=0;j<r;j++){const X=new Float64Array(j+1);X[j]=1/A[j][j];
+    for(let i=j-1;i>=0;i--){let s=0;for(let l=i+1;l<=j;l++)s+=A[l][i]*X[l];X[i]=-s/A[i][i]}
+    for(let i=0;i<=j;i++)dg[i]+=X[i]*X[i]}
+  return{coef,rss,r,e,h,used:perm.slice(0,r),b,dg};
+}
+function score(name,f,n,tss){
+  const p=f.r,rss=Math.max(f.rss,1e-15*tss,1e-300);
+  if(name==='aicc')return n-p-1<=0?Infinity:n*Math.log(rss/n)+2*p+2*p*(p+1)/(n-p-1);
+  if(name==='bic')return n-p<=0?Infinity:n*Math.log(rss/n)+p*Math.log(n);
+  if(name==='gcv')return n-p<=0?Infinity:n*rss/((n-p)**2);
+  let s=0;for(let i=0;i<n;i++){const d=1-f.h[i];if(d<1e-10)return Infinity;s+=(f.e[i]/d)**2}return s/n;
+}
+function compute(){
+  const xs=D.xs,ys=D.ys,n=xs.length;if(n<2)return null;
+  const method=$('method').value,crit=method==='fixed'?'aicc':method,needH=crit==='loocv';
+  let mn=Math.min(...xs),mx=Math.max(...xs),mid=(mn+mx)/2,o=$('origin').value;
+  if(o==='auto')o=Math.abs(mid)<=Math.max(mx-mn,1e-300)?'zero':'mid';
+  const c=o==='zero'?0:mid;let s=Math.max(...xs.map(x=>Math.abs(x-c)));if(!(s>0))s=1;
+  const t=xs.map(x=>(x-c)/s),P=[new Float64Array(n).fill(1)];
+  for(let k=1;k<=MAXK;k++){const a=new Float64Array(n);for(let i=0;i<n;i++)a[i]=P[k-1][i]*t[i];P.push(a)}
+  const ym=ys.reduce((a,b)=>a+b,0)/n,tss=ys.reduce((a,v)=>a+(v-ym)**2,0)||1e-300;
+  const dmax=Math.min(+$('maxdeg').value,n-1),scores=[],range=k=>Array.from({length:k+1},(_,i)=>i);
+  for(let d=0;d<=dmax;d++)scores.push(score(crit,fitCols(P,ys,range(d),needH),n,tss));
+  let d;
+  if(method==='fixed')d=Math.max(0,Math.min(+$('fixdeg').value||0,n-1));
+  else{d=0;let bs=Infinity;scores.forEach((v,i)=>{if(v<bs-1e-9){bs=v;d=i}});if(bs===Infinity)d=Math.min(1,n-1)}
+  let f=fitCols(P,ys,range(d),true),S=f.used.slice(),removed=new Set();
+  const dependent=new Set(range(d).filter(k=>!S.includes(k)));
+  if($('prune').checked){
+    for(let guard=0;guard<60;guard++){
+      if(S.length<=1||n-f.r<=0)break;
+      const cur=score(crit,f,n,tss),sig2=f.rss/(n-f.r);
+      const cand=f.used.map((k,j)=>({k,t:Math.abs(f.b[j])/Math.sqrt(Math.max(sig2*f.dg[j],1e-300))})).sort((a,b)=>a.t-b.t).slice(0,3);
+      let ok=false;
+      for(const q of cand){const S2=S.filter(k=>k!==q.k),f2=fitCols(P,ys,S2,true);
+        if(score(crit,f2,n,tss)<cur-1e-9){S=f2.used.slice();f=f2;removed.add(q.k);ok=true;break}}
+      if(!ok)break;
+    }
+  }
+  const b=Array.from(f.coef.slice(0,d+1)),deg=b.reduce((m,v,k)=>v!==0?k:m,0);
+  const a=b.map((v,k)=>v/s**k);
+  const rss=f.rss,p=f.r;
+  return{c,s,b,a,d,deg,p,n,rss,tss,crit,scores,removed,dependent,r2:1-rss/tss,adj:n-p>0?1-(rss/(n-p))/(tss/(n-1)):NaN,rmse:Math.sqrt(rss/n),
+    maxC:Math.max(...a.map((v,k)=>Math.abs(b[k])))};
+}
+const evalT=(b,t)=>{let v=0;for(let k=b.length-1;k>=0;k--)v=v*t+b[k];return v};
+function expand(a,c){const m=a.length,out=new Array(m).fill(0);
+  for(let k=0;k<m;k++){if(!a[k])continue;let bin=1;for(let j=0;j<=k;j++){out[j]+=a[k]*bin*(-c)**(k-j);bin=bin*(k-j)/(j+1)}}return out}
+
+/* ---------- formatting ---------- */
+function fnum(v,sig){if(v===0)return{m:'0',e:0};const ex=Math.floor(Math.log10(Math.abs(v)));
+  if(ex>=-3&&ex<=5)return{m:String(Number(v.toPrecision(sig))),e:0};
+  const[m,e]=v.toExponential(sig-1).split('e');return{m:String(Number(m)),e:+e}}
+const neg=s=>s.replace(/-/g,'−');
+function curTerms(){if(!R)return null;const sig=+$('sig').value,exp=R.c!==0&&$('form').value==='x';
+  const co=exp?expand(R.a,R.c):R.a,cv=fnum(R.c,sig);
+  const vr=R.c===0||exp?'x':`(x ${R.c<0?'+':'−'} ${neg(fnum(Math.abs(R.c),sig).m)}${cv.e?'×10^'+cv.e:''})`;
+  const list=co.map((v,k)=>({k,v})).filter(o=>o.v!==0);return{list,vr,sig,exp,co}}
+function segs(o,first,vr,sig){const f=fnum(Math.abs(o.v),sig),S=[];
+  let lead=first?(o.v<0?'−':''):(o.v<0?' − ':' + ');
+  const one=f.m==='1'&&!f.e&&o.k>0;
+  S.push([lead+(one?'':f.m+(f.e?'×10':'')),0]);if(f.e&&!one)S.push([neg(String(f.e)),1]);
+  if(o.k>0){S.push([(one?'':' ')+vr,0]);if(o.k>1)S.push([String(o.k),1])}return S}
+function eqSegs(){const T=curTerms();if(!T||!T.list.length)return[[['y = 0',0]]];
+  return[[['y = ',0]],...T.list.map((o,i)=>segs(o,i===0,T.vr,T.sig))]}
+function plain(tex){const T=curTerms();if(!T)return'';const vr=T.vr.replace(/−/g,'-');
+  const parts=T.list.map((o,i)=>{const f=fnum(Math.abs(o.v),T.sig);const c=tex?(f.e?`${f.m}\\times10^{${f.e}}`:f.m):(f.e?`${f.m}e${f.e}`:f.m);
+    const sg=i===0?(o.v<0?'-':''):(o.v<0?' - ':' + ');const pw=o.k===0?'':o.k===1?(tex?vr:'*'+vr):(tex?`${vr}^{${o.k}}`:`*${vr}^${o.k}`);
+    return sg+c+pw});return'y = '+(parts.join('')||'0')}
+
+/* ---------- drawing ---------- */
+function pal(){const s=[...$('probe').children].map(e=>getComputedStyle(e).color);return{ink:s[0],mute:s[1],grid:s[2],pt:s[3],bg:s[4],line:s[5],acc:'#ff7a1a'}}
+function ticks(a,b,n){const st0=(b-a)/Math.max(n,1),p=10**Math.floor(Math.log10(st0)),m=st0/p,st=(m<1.5?1:m<3?2:m<7?5:10)*p,out=[];
+  for(let v=Math.ceil(a/st)*st;v<=b+st*1e-9;v+=st)out.push(Math.abs(v)<st*1e-9?0:v);return out}
+const tl=v=>{const a=Math.abs(v);return neg(a!==0&&(a>=1e5||a<1e-3)?v.toExponential(1):String(+v.toPrecision(6)))};
+function axes(ctx,X,Y,W,H,P,sc,xr,yr,xn,yn){
+  ctx.font=`${12*sc}px Inter,sans-serif`;const yt=ticks(yr[0],yr[1],Math.max(3,H/(60*sc))),xt=ticks(xr[0],xr[1],Math.max(3,W/(95*sc)));
+  const L=X+14*sc+Math.max(...yt.map(v=>ctx.measureText(tl(v)).width)),T=Y+30*sc,Rr=X+W-14*sc,B=Y+H-40*sc;
+  const mx=x=>L+(x-xr[0])/(xr[1]-xr[0])*(Rr-L),my=y=>B-(y-yr[0])/(yr[1]-yr[0])*(B-T);
+  ctx.lineWidth=1*sc;ctx.strokeStyle=P.grid;ctx.fillStyle=P.mute;ctx.textBaseline='middle';ctx.textAlign='right';
+  yt.forEach(v=>{const y=my(v);ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(Rr,y);ctx.stroke();ctx.fillText(tl(v),L-8*sc,y)});
+  ctx.textAlign='center';ctx.textBaseline='top';
+  xt.forEach(v=>{const x=mx(v);ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,B);ctx.stroke();ctx.fillText(tl(v),x,B+7*sc)});
+  ctx.strokeStyle=P.line;ctx.strokeRect(L,T,Rr-L,B-T);
+  ctx.fillStyle=P.ink;ctx.font=`500 ${13*sc}px Inter,sans-serif`;ctx.fillText(xn,(L+Rr)/2,B+23*sc);
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.fillText(yn,L,T-10*sc);
+  return{L,T,Rr,B,mx,my};
+}
+function drawChart(ctx,X,Y,W,H,P,sc){
+  ctx.fillStyle=P.bg;ctx.fillRect(X,Y,W,H);const xs=D.xs,ys=D.ys;
+  if(!xs.length){ctx.fillStyle=P.mute;ctx.font=`${15*sc}px Inter,sans-serif`;ctx.textAlign='center';ctx.fillText('Import a sheet, paste data or load the sample',X+W/2,Y+H/2);ctx.textAlign='left';return}
+  let x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  if(x0===x1){x0-=1;x1+=1}if(y0===y1){y0-=1;y1+=1}
+  const px=(x1-x0)*.04,py=(y1-y0)*.12;x0-=px;x1+=px;y0-=py;y1+=py;
+  const g=axes(ctx,X,Y,W,H,P,sc,[x0,x1],[y0,y1],D.xn,D.yn);
+  ctx.save();ctx.beginPath();ctx.rect(g.L,g.T,g.Rr-g.L,g.B-g.T);ctx.clip();
+  if(R){const span=y1-y0;ctx.beginPath();for(let i=0;i<=1200;i++){const x=x0+(x1-x0)*i/1200;
+      let v=evalT(R.b,(x-R.c)/R.s);v=Math.max(y0-10*span,Math.min(y1+10*span,v));i?ctx.lineTo(g.mx(x),g.my(v)):ctx.moveTo(g.mx(x),g.my(v))}
+    ctx.strokeStyle=P.acc;ctx.lineWidth=2.6*sc;ctx.lineJoin='round';ctx.stroke()}
+  ctx.fillStyle=P.pt;ctx.globalAlpha=.85;const rr=Math.max(2,(xs.length>400?2.4:3.6))*sc;
+  for(let i=0;i<xs.length;i++){ctx.beginPath();ctx.arc(g.mx(xs[i]),g.my(ys[i]),rr,0,7);ctx.fill()}
+  ctx.restore();ctx.globalAlpha=1;
+  ctx.font=`${12*sc}px Inter,sans-serif`;ctx.textAlign='right';ctx.textBaseline='middle';const lx=g.Rr,ly=g.T-14*sc;
+  ctx.fillStyle=P.mute;ctx.fillText('fit',lx,ly);let w=ctx.measureText('fit').width+8*sc;
+  ctx.strokeStyle=P.acc;ctx.lineWidth=2.6*sc;ctx.beginPath();ctx.moveTo(lx-w,ly);ctx.lineTo(lx-w-18*sc,ly);ctx.stroke();w+=34*sc;
+  const dt=`data (${xs.length})`;ctx.fillText(dt,lx-w,ly);w+=ctx.measureText(dt).width+10*sc;
+  ctx.fillStyle=P.pt;ctx.beginPath();ctx.arc(lx-w,ly,3.6*sc,0,7);ctx.fill();ctx.textAlign='left';ctx.textBaseline='alphabetic';
+}
+function sizeCanvas(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;cv.width=Math.max(1,r.width*dpr);cv.height=Math.max(1,r.height*dpr);
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);return[ctx,r.width,r.height]}
+function draw(){const P=pal(),[ctx,W,H]=sizeCanvas($('cv'));drawChart(ctx,0,0,W,H,P,1);drawCrit(P)}
+function drawCrit(P){const[ctx,W,H]=sizeCanvas($('cv2'));ctx.fillStyle=P.bg;ctx.fillRect(0,0,W,H);if(!R)return;
+  const lg=R.crit==='gcv'||R.crit==='loocv',pts=R.scores.map((v,k)=>[k,lg?Math.log10(v):v]).filter(p=>isFinite(p[1]));if(pts.length<1)return;
+  let y0=Math.min(...pts.map(p=>p[1])),y1=Math.max(...pts.map(p=>p[1]));if(y0===y1){y0-=1;y1+=1}const py=(y1-y0)*.08;
+  const g=axes(ctx,0,0,W,H,P,1,[-.5,Math.max(R.scores.length-.5,1.5)],[y0-py,y1+py],'degree',lg?'log₁₀ score':'score');
+  ctx.strokeStyle=P.pt;ctx.lineWidth=1.6;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(g.mx(p[0]),g.my(p[1])):ctx.moveTo(g.mx(p[0]),g.my(p[1])));ctx.stroke();
+  ctx.fillStyle=P.pt;pts.forEach(p=>{ctx.beginPath();ctx.arc(g.mx(p[0]),g.my(p[1]),2.6,0,7);ctx.fill()});
+  const ch=pts.find(p=>p[0]===R.d);if(ch){ctx.fillStyle=P.acc;ctx.beginPath();ctx.arc(g.mx(ch[0]),g.my(ch[1]),6,0,7);ctx.fill()}}
+const ro=new ResizeObserver(()=>draw());ro.observe($('fig'));
+
+/* ---------- render ---------- */
+const NAMES={aicc:'AICc',bic:'BIC',loocv:'LOOCV',gcv:'GCV'};
+function render(){
+  const st=$('stats');
+  if(!R){st.innerHTML='';$('eq').textContent='y = …';$('tb').innerHTML='';$('eqnote').textContent='';draw();return}
+  const f=(v,d=4)=>isFinite(v)?neg(String(+v.toPrecision(d))):'—';
+  const rows=[['Degree',R.deg],['Non-zero terms',R.p],['R²',f(R.r2,6)],['Adjusted R²',f(R.adj,6)],['RMSE',f(R.rmse)],['Points',R.n]];
+  st.innerHTML=rows.map(r=>`<div><dt>${r[0]}</dt><dd>${esc(r[1])}</dd></div>`).join('');
+  $('formWrap').hidden=R.c===0;
+  $('eq').innerHTML=eqSegs().map(t=>'<span class="t">'+t.map(s=>s[1]?`<sup>${esc(s[0])}</sup>`:esc(s[0])).join('')+'</span>').join('');
+  const T=curTerms(),notes=[];
+  if(R.c!==0&&!T.exp)notes.push(`Expanded around c = ${neg(String(+R.c.toPrecision(8)))} for numerical stability.`);
+  if(T.exp)notes.push('Expanded form: removed terms in (x − c) generally become non-zero in x.');
+  if(R.maxC>1e6*Math.max(1,Math.sqrt(R.tss/R.n)))notes.push('Coefficients are very large; use full precision when evaluating.');
+  notes.push(`Chosen by ${$('method').value==='fixed'?'fixed degree':NAMES[R.crit]}.`);
+  $('eqnote').textContent=notes.join(' ');
+  const vr=T.vr;$('stH').hidden=T.exp;
+  $('tb').innerHTML=T.co.map((v,k)=>{const fv=fnum(v,T.sig);
+    const stt=T.exp?'':v!==0?'kept':R.dependent.has(k)?'redundant (0)':R.removed.has(k)?'removed (0)':'0';
+    const term=k===0?'constant':k===1?esc(vr):`${esc(vr)}<sup>${k}</sup>`;
+    return`<tr class="${v===0?'z':''}"><td>${term}</td><td class="n">${esc(neg(fv.m))}${fv.e?`×10<sup>${esc(neg(String(fv.e)))}</sup>`:''}</td>${T.exp?'':`<td>${stt}</td>`}</tr>`}).join('');
+  $('critTitle').textContent=`${NAMES[R.crit]} by degree`;draw();
+}
+function run(){document.body.classList.add('busy');setTimeout(()=>{try{R=compute()}catch(e){R=null;setStatus('Fit failed: '+e.message,true)}render();document.body.classList.remove('busy')},20)}
+function setStatus(msg,err){$('status').innerHTML=err?`<span class="err">${esc(msg)}</span>`:msg}
+
+/* ---------- data in ---------- */
+function num(v){if(typeof v==='number')return v;if(v==null)return NaN;const s=String(v).trim();if(!s)return NaN;let x=Number(s);if(isNaN(x))x=Number(s.replace(',','.'));return x}
+function rowsToData(rows,src){
+  rows=rows.filter(r=>r&&r.some(c=>c!==''&&c!=null));if(!rows.length){setStatus('That sheet is empty.',true);return}
+  let start=0,yn='y',xn='x';const h=rows[0];
+  if(!(isFinite(num(h[0]))&&isFinite(num(h[1])))){start=1;yn=String(h[0]??'y').trim()||'y';xn=String(h[1]??'x').trim()||'x'}
+  const xs=[],ys=[];let skip=0;
+  for(let i=start;i<rows.length;i++){const y=num(rows[i][0]),x=num(rows[i][1]);if(isFinite(x)&&isFinite(y)){xs.push(x);ys.push(y)}else skip++}
+  if(xs.length<2){setStatus('Need at least two rows with numbers in the first two columns (y, then x).',true);return}
+  D={xs,ys,xn,yn,src};
+  const mx=Math.min(50,xs.length-1);$('maxdeg').max=String(Math.max(1,mx));if(+$('maxdeg').value>mx)$('maxdeg').value=String(Math.max(1,mx));$('maxOut').textContent=$('maxdeg').value;
+  setStatus(`<b>${esc(src)}</b> · ${xs.length} points${skip?` · ${skip} row${skip>1?'s':''} skipped (not numeric)`:''}`);run();
+}
+function parseText(t){const L=t.split(/\r?\n/).filter(l=>l.trim());if(!L.length)return[];const f=L[0];
+  const d=f.includes('\t')?'\t':f.includes(';')?';':f.includes(',')?',':/\s+/;
+  return L.map(l=>l.trim().split(d).map(s=>s.trim().replace(/^"(.*)"$/,'$1')))}
+async function loadFile(file){
+  fileName=file.name.replace(/\.[^.]+$/,'');const ext=file.name.split('.').pop().toLowerCase();
+  try{
+    if(['csv','tsv','txt'].includes(ext)||!window.XLSX){wb=null;$('sheetWrap').hidden=true;rowsToData(parseText(await file.text()),file.name);return}
+    wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+    $('sheet').innerHTML=wb.SheetNames.map((n,i)=>`<option value="${i}">${esc(n)}</option>`).join('');$('sheetWrap').hidden=wb.SheetNames.length<2;useSheet(0,file.name);
+  }catch(e){setStatus('Could not read that file: '+e.message,true)}
+}
+function useSheet(i,name){const sn=wb.SheetNames[i];rowsToData(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,blankrows:false,defval:''}),wb.SheetNames.length>1?`${name} · ${sn}`:name)}
+function sample(){let sd=7;const r=()=>(sd=(sd*1664525+1013904223)>>>0)/4294967296,rows=[['y','x']];
+  for(let i=0;i<60;i++){const x=-3+6*i/59,g=(r()+r()+r()-1.5)*1.2;rows.push([+(2-3*x+.5*x**3+g).toFixed(4),+x.toFixed(4)])}
+  fileName='sample';wb=null;$('sheetWrap').hidden=true;rowsToData(rows,'Sample data (made up): y = 2 − 3x + 0.5x³ plus noise, no x² term')}
+
+/* ---------- export ---------- */
+async function exportImg(){
+  if(!R){setStatus('Load data first, then export.',true);return}
+  try{await document.fonts.ready}catch(e){}
+  const sc=2,W=900*sc,pad=36*sc,cw=W-2*pad,m=document.createElement('canvas').getContext('2d');
+  const eqF=`500 ${17*sc}px Inter,sans-serif`,supF=`500 ${11.5*sc}px Inter,sans-serif`,lh=34*sc,groups=eqSegs();
+  const gw=g=>g.reduce((w,s)=>{m.font=s[1]?supF:eqF;return w+m.measureText(s[0]).width},0);
+  const lines=[[]];let lw=0;groups.forEach(g=>{const w=gw(g);if(lw+w>cw&&lines[lines.length-1].length){lines.push([]);lw=0}lines[lines.length-1].push(g);lw+=w});
+  const chartH=500*sc,top=pad+70*sc,H=top+chartH+24*sc+lines.length*lh+pad;
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const ctx=cv.getContext('2d');
+  const P={ink:'#10223a',mute:'#4d5f75',grid:'#e7eef4',pt:'#1d6fa8',bg:'#ffffff',line:'#d9e3ec',acc:'#ff7a1a'};
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.fillStyle='#4fb3e8';ctx.fillRect(0,0,W,8*sc);
+  ctx.fillStyle=P.ink;ctx.font=`600 ${26*sc}px Outfit,Inter,sans-serif`;ctx.fillText(`Best-fit polynomial, degree ${R.deg}`,pad,pad+24*sc);
+  ctx.fillStyle=P.mute;ctx.font=`${13*sc}px Inter,sans-serif`;
+  const sub=`${D.xs.length} points · ${R.p} non-zero terms · R² = ${+R.r2.toPrecision(6)} · RMSE = ${+R.rmse.toPrecision(4)} · ${$('method').value==='fixed'?'fixed degree':'chosen by '+NAMES[R.crit]}`;
+  ctx.fillText(neg(sub),pad,pad+48*sc);
+  drawChart(ctx,pad,top,cw,chartH,P,sc);
+  let y=top+chartH+24*sc+lh*.7;ctx.fillStyle=P.ink;
+  lines.forEach(L=>{let x=pad;L.forEach(g=>g.forEach(s=>{ctx.font=s[1]?supF:eqF;ctx.fillText(s[0],x,s[1]?y-9*sc:y);x+=ctx.measureText(s[0]).width}));y+=lh});
+  const blob=await new Promise(r=>cv.toBlob(r,'image/png')),name=`${(fileName||'fit').replace(/[^\w.-]+/g,'_')}_polyfit.png`;
+  const dl=await dlP;
+  if(dl){try{await dl.save({filename:name,data:blob});return}catch(e){if(e&&e.code==='declined')return}}
+  else if(!(window.claude&&window.claude.use)){try{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();return}catch(e){}}
+  $('imgOut').src=cv.toDataURL('image/png');$('imgMsg').textContent='Right-click or long-press the image to save it.';$('imgM').classList.add('on');
+}
+
+/* ---------- events ---------- */
+async function copy(txt,btn){const old=btn.textContent;try{await navigator.clipboard.writeText(txt);btn.textContent='Copied'}catch(e){
+  const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');btn.textContent='Copied'}catch(_){btn.textContent='Copy failed'}ta.remove()}
+  setTimeout(()=>btn.textContent=old,1400)}
+$('file').addEventListener('change',e=>{const f=e.target.files[0];if(f)loadFile(f);e.target.value=''});
+$('sampleBtn').addEventListener('click',sample);
+$('exportBtn').addEventListener('click',()=>exportImg().catch(e=>setStatus('Export failed: '+e.message,true)));
+$('pasteBtn').addEventListener('click',()=>{$('pasteM').classList.add('on');$('pasteTa').focus()});
+$('pasteNo').addEventListener('click',()=>$('pasteM').classList.remove('on'));
+$('pasteOk').addEventListener('click',()=>{$('pasteM').classList.remove('on');fileName='pasted';wb=null;$('sheetWrap').hidden=true;rowsToData(parseText($('pasteTa').value),'Pasted data')});
+$('imgNo').addEventListener('click',()=>$('imgM').classList.remove('on'));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.on').forEach(m=>m.classList.remove('on'))});
+$('sheet').addEventListener('change',e=>useSheet(+e.target.value,fileName));
+$('method').addEventListener('change',()=>{const fx=$('method').value==='fixed';$('fixWrap').hidden=!fx;$('maxWrap').hidden=fx;run()});
+$('maxdeg').addEventListener('input',()=>$('maxOut').textContent=$('maxdeg').value);
+['maxdeg','fixdeg','prune','origin'].forEach(id=>$(id).addEventListener('change',run));
+['sig','form'].forEach(id=>$(id).addEventListener('change',render));
+$('copyTxt').addEventListener('click',e=>copy(plain(false),e.currentTarget));
+$('copyTex').addEventListener('click',e=>copy(plain(true),e.currentTarget));
+['dragover','dragenter'].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();document.body.classList.add('drop')}));
+['dragleave','drop'].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();if(t==='drop'||!e.relatedTarget)document.body.classList.remove('drop')}));
+document.addEventListener('drop',e=>{const f=e.dataTransfer&&e.dataTransfer.files[0];if(f)loadFile(f)});
+new MutationObserver(()=>draw()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+sample();
+}
+</script>
+</body>
+</html>
