@@ -82,6 +82,11 @@ tr.z td{color:var(--mute)}
 @media(max-width:860px){.main,.two{grid-template-columns:minmax(0,1fr)}.fig{height:auto;min-height:360px}}
 @media(max-width:600px){table{font-size:13px}.stats dd{font-size:17px}}
 #probe span{position:absolute;visibility:hidden}
+button.run{width:100%;justify-content:center;font-weight:600;font-size:16px;min-height:50px}
+button.run:disabled{opacity:.6;cursor:progress}
+.runnote{margin:-6px 0 0}.runnote.stale{color:#c25a00;font-weight:500}
+.stalefig{opacity:.55}
+.stats:empty{display:none}
 
 </style>
 </head>
@@ -112,6 +117,8 @@ tr.z td{color:var(--mute)}
 <label>Show equation as<select id="form"><option value="x">Powers of x</option><option value="cheb">Chebyshev series</option><option value="t">Powers of t</option></select></label>
 
       </div>
+      <button type="button" id="runBtn" class="pri run">Run fit</button>
+      <p class="hint runnote" id="runNote" aria-live="polite">Load or import data, then press Run fit.</p>
       <label>Significant figures<select id="sig"><option>4</option><option selected>6</option><option>8</option><option>10</option><option>15</option></select></label>
       <dl class="stats" id="stats"></dl>
     </aside>
@@ -574,8 +581,11 @@ function render(){
 }
 function setStatus(msg,err){$('status').innerHTML=err?`<span class="err">${esc(msg)}</span>`:msg}
 let runId=0;
-function run(){if(!D){R=null;render();return}const id=++runId;document.body.classList.add('busy');
-  setTimeout(()=>{if(id!==runId)return;try{R=M.fit(D,M.opts())}catch(e){R=null;console.error(e);setStatus('Fit failed: '+e.message,true)}render();document.body.classList.remove('busy')},30)}
+function runNote(msg,stale){const n=$('runNote');n.textContent=msg;n.classList.toggle('stale',!!stale);['fig','eq','stats'].forEach(id=>$(id).classList.toggle('stalefig',!!stale&&!!R))}
+function markStale(){if(!D)return;runNote(R?'Settings changed. The result shown is out of date: press Run fit to update it.':'Press Run fit to fit the data.',true)}
+function run(){if(!D){R=null;render();runNote('Load or import data first.',true);return}const id=++runId,b=$('runBtn');document.body.classList.add('busy');b.disabled=true;b.textContent='Fitting…';
+  setTimeout(()=>{if(id!==runId)return;const t0=performance.now();let ok=true;try{R=M.fit(D,M.opts())}catch(e){ok=false;R=null;console.error(e);setStatus('Fit failed: '+e.message,true)}
+    render();document.body.classList.remove('busy');b.disabled=false;b.textContent='Run fit';runNote(ok?`Fitted in ${((performance.now()-t0)/1000).toFixed(2)} s. Change settings and press Run fit again to refit.`:'The fit failed; see the message above.',!ok)},30)}
 
 /* ---------- data in ---------- */
 function num(v){if(typeof v==='number')return v;if(v==null)return NaN;const s=String(v).trim();if(!s)return NaN;let x=Number(s);if(isNaN(x))x=Number(s.replace(',','.'));return x}
@@ -590,7 +600,7 @@ function rowsToData(rows,src){
     if(v.slice(0,minC).every(isFinite)&&(M.allCols?v.every(isFinite):true)){v.forEach((x,j)=>cols[j].push(x))}else skip++}
   if(cols[0].length<(M.minRows||3)){setStatus(`Need at least ${M.minRows||3} rows with numbers in the first ${minC} columns.`,true);return}
   D={cols,names,y:cols[0],x:cols[1],n:cols[0].length,src};M.onData?.(D);
-  setStatus(`<b>${esc(src)}</b> · ${D.n} points${skip?` · ${skip} row${skip>1?'s':''} skipped (not numeric)`:''}`);run();
+  setStatus(`<b>${esc(src)}</b> · ${D.n} points${skip?` · ${skip} row${skip>1?'s':''} skipped (not numeric)`:''}`);R=null;render();runNote('Data loaded and plotted. Press Run fit to fit it.',true);
 }
 function parseText(t){const L=t.split(/\r?\n/).filter(l=>l.trim());if(!L.length)return[];const f=L[0];
   const d=f.includes('\t')?'\t':f.includes(';')?';':f.includes(',')?',':/\s+/;
@@ -650,7 +660,8 @@ $('sig').addEventListener('change',render);
 $('copyTxt').addEventListener('click',e=>R&&copy(R.eq(sigv()).plain,e.currentTarget));
 $('copyTex').addEventListener('click',e=>R&&copy(R.eq(sigv()).latex,e.currentTarget));
 $('ctrl').addEventListener('input',e=>{const o=$(e.target.id+'Out');if(o)o.textContent=e.target.value});
-$('ctrl').addEventListener('change',e=>{M.ui?.();if(!(M.renderOnly||[]).includes(e.target.id))run();else render()});
+$('ctrl').addEventListener('change',()=>{M.ui?.();markStale()});
+$('runBtn').addEventListener('click',run);
 ['dragover','dragenter'].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();document.body.classList.add('drop')}));
 ['dragleave','drop'].forEach(t=>document.addEventListener(t,e=>{e.preventDefault();if(t==='drop'||!e.relatedTarget)document.body.classList.remove('drop')}));
 document.addEventListener('drop',e=>{const f=e.dataTransfer&&e.dataTransfer.files[0];if(f)loadFile(f)});
